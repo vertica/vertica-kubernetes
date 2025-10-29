@@ -43,6 +43,7 @@ const (
 	nmaTLSSecret          = "NMATLSSecret"
 	httpsNMATLSSecret     = "HTTPSNMATLSSecret" //nolint:gosec
 	clientServerTLSSecret = "ClientServerTLSSecret"
+	interNodeTLSSecret    = "InterNodeTLSSecret" //nolint:gosec
 	TLSCertName           = "tls.crt"
 	TLSKeyName            = "tls.key"
 )
@@ -70,7 +71,6 @@ func (h *TLSServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Requ
 	if !h.ShouldGenerateCert() || h.Vdb.IsTLSCertRollbackNeeded() || h.Vdb.GetHTTPSPollingCurrentRetries() > 0 {
 		return ctrl.Result{}, nil
 	}
-
 	return ctrl.Result{}, h.reconcileSecrets(ctx)
 }
 
@@ -83,6 +83,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 		{clientServerTLSSecret, h.Vdb.GetClientServerTLSSecret()},
 		{nmaTLSSecret, h.Vdb.Spec.NMATLSSecret},
 		{httpsNMATLSSecret, h.Vdb.GetHTTPSNMATLSSecret()},
+		{interNodeTLSSecret, h.Vdb.GetInterNodeTLSSecret()},
 	}
 
 	h.Log.Info("Starting TLS secret reconciliation", "secrets", secretStruct)
@@ -91,22 +92,28 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 	for _, s := range secretStruct {
 		secretFieldName := s.Field
 		secretName := s.Name
-
 		if h.ShouldSkipThisConfig(secretFieldName) {
 			continue
 		}
 		h.Log.Info("Reconciling TLS secret", "TLS secret", secretFieldName, "secretName", secretName)
 
 		// when nma secret is not empty, we can assign it to https and/or clientserver TLS
-		if skipToNext, errInit := h.tryInitializeFromNMATLSSecret(ctx, secretFieldName, secretName); errInit != nil || skipToNext {
+		skipToNext, errInit := h.tryInitializeFromNMATLSSecret(ctx, secretFieldName, secretName)
+		if errInit != nil {
 			return err
+		}
+		if skipToNext {
+			continue
 		}
 
 		// Initialize nmaTLSSecret for legacy compatibility
-		if skipToNext, errHandle := h.handleLegacyNMATLSSecret(ctx, secretFieldName); errHandle != nil || skipToNext {
+		skipToNext, errHandle := h.handleLegacyNMATLSSecret(ctx, secretFieldName)
+		if errHandle != nil {
 			return err
 		}
-
+		if skipToNext {
+			continue
+		}
 		err = h.reconcileOneSecret(secretFieldName, secretName, ctx)
 		if err != nil {
 			h.Log.Error(err, fmt.Sprintf("failed to reconcile secret for %s", secretFieldName))
@@ -118,7 +125,7 @@ func (h *TLSServerCertGenReconciler) reconcileSecrets(ctx context.Context) error
 
 // tryInitializeFromNMATLSSecret tries to initialize https/clientserver TLS secret from nmaTLSSecret
 func (h *TLSServerCertGenReconciler) tryInitializeFromNMATLSSecret(ctx context.Context, secretFieldName, secretName string) (bool, error) {
-	if h.Vdb.Spec.NMATLSSecret == "" || secretFieldName == nmaTLSSecret || secretName != "" {
+	if h.Vdb.Spec.NMATLSSecret == "" || secretFieldName == nmaTLSSecret || secretFieldName == interNodeTLSSecret || secretName != "" {
 		return false, nil
 	}
 
@@ -166,6 +173,9 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
 	if secretFieldName == clientServerTLSSecret {
 		tlsConfigName = vapi.ClientServerTLSConfigName
+	}
+	if secretFieldName == interNodeTLSSecret {
+		tlsConfigName = vapi.InterNodeTLSConfigName
 	}
 	// If the secret name is set, check that it exists.
 	if secretName != "" {
@@ -276,6 +286,8 @@ func (h *TLSServerCertGenReconciler) createSecret(secretFieldName, secretName st
 			secret.GenerateName = fmt.Sprintf("%s-clientserver-tls-", h.Vdb.Name)
 		case nmaTLSSecret:
 			secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
+		case interNodeTLSSecret:
+			secret.GenerateName = fmt.Sprintf("%s-internode-tls-", h.Vdb.Name)
 		}
 	} else {
 		secret.Name = secretName
@@ -298,6 +310,11 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 				return errors.New("ClientServerTLS is not enabled but trying to set secret")
 			}
 			h.Vdb.Spec.ClientServerTLS.Secret = secretName
+		case interNodeTLSSecret:
+			if h.Vdb.Spec.InterNodeTLS == nil {
+				return errors.New("InterNodeTLS is not enabled but trying to set secret")
+			}
+			h.Vdb.Spec.InterNodeTLS.Secret = secretName
 		case httpsNMATLSSecret:
 			if h.Vdb.Spec.HTTPSNMATLS == nil {
 				return errors.New("HTTPSNMATLS is not enabled but trying to set secret")
@@ -378,8 +395,9 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 func (h *TLSServerCertGenReconciler) ShouldGenerateCert() bool {
 	httpsNMACertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.HTTPSNMATLSConfigName)
 	clientServerCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.ClientServerTLSConfigName)
+	interNodeCertNeeded := h.Vdb.ShouldGenCertForTLSConfig(vapi.InterNodeTLSConfigName)
 	nmaCertNeeded := !h.Vdb.IsHTTPSNMATLSAuthEnabled() && h.Vdb.Spec.NMATLSSecret == ""
-	return httpsNMACertNeeded || clientServerCertNeeded || nmaCertNeeded
+	return httpsNMACertNeeded || clientServerCertNeeded || interNodeCertNeeded || nmaCertNeeded
 }
 
 // ShouldSkipThisConfig determines whether an individual config (NMA, HTTPS, or Server) should skipped.
@@ -394,6 +412,10 @@ func (h *TLSServerCertGenReconciler) ShouldSkipThisConfig(secretFieldName string
 	}
 	if secretFieldName == clientServerTLSSecret && !h.Vdb.IsClientServerTLSAuthEnabled() {
 		h.Log.Info("Client-server TLS config disabled. Skipping secret validation and generation")
+		return true
+	}
+	if secretFieldName == interNodeTLSSecret && !h.Vdb.IsInterNodeTLSAuthEnabled() {
+		h.Log.Info("InterNode TLS config disabled. Skipping secret validation and generation")
 		return true
 	}
 	return false

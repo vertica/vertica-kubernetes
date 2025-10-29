@@ -59,7 +59,6 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
 		return ctrl.Result{}, nil
 	}
-
 	actors := []controllers.ReconcileActor{}
 	// when we first set tls config and nma tls secret is different than https tls secret,
 	// we need to restart nma

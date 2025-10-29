@@ -41,6 +41,17 @@ involvedObject:
   name: v-auto-cert-rotate
 message: Successfully set Server tls config
 ---
+apiVersion: v1
+kind: Event
+reason: TLSConfigurationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Successfully set Internode tls config
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -54,3 +65,4 @@ status:
     - cert2
     - cert3
   - name: clientServer
+  - name: interNode
