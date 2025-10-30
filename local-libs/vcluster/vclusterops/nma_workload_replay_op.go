@@ -39,6 +39,7 @@ type nmaWorkloadReplayOp struct {
 
 	workloadReplayData *workloadReplayData
 	JobID              int64
+	quickReplay        bool // if true, executes queries without delay
 }
 
 func makeNMAWorkloadReplayOp(hosts []string, usePassword bool, hostNodeMap vHostNodeMap,
@@ -218,28 +219,32 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 		default:
 			replayProgress := fmt.Sprintf("%d/%d", index, len(originalData))
 
-			// Determine if we're behind or ahead of schedule
-			originalQueryStartTime, err := parseWorkloadTime(workloadQuery.StartTimestamp)
-			if err != nil {
-				return err // Shouldn't happen since we do validation ahead of time
-			}
-			originalElapsedTime := originalQueryStartTime.Sub(originalStartTime)
-			currentElapsedTime := time.Since(replayStartTime)
-
-			// If we're ahead of schedule, sleep
-			if currentElapsedTime < originalElapsedTime {
-				sleepDuration := originalElapsedTime - currentElapsedTime
-				op.logger.Log.Info("Workload replay ahead of schedule, sleeping", "name",
-					op.name, "progress", replayProgress, "duration", sleepDuration)
-				select {
-				case <-time.After(sleepDuration):
-					// Sleep finished, continue to the next iteration
-				case <-execContext.workloadReplyCtx.Done():
-					op.logger.Log.Info("%s: Workload replay canceled during sleep: %v", op.name, execContext.workloadReplyCtx.Err())
-					return execContext.workloadReplyCtx.Err()
+			if !op.quickReplay {
+				// Determine if we're behind or ahead of schedule
+				originalQueryStartTime, err := parseWorkloadTime(workloadQuery.StartTimestamp)
+				if err != nil {
+					return err // Shouldn't happen since we do validation ahead of time
+				}
+				originalElapsedTime := originalQueryStartTime.Sub(originalStartTime)
+				currentElapsedTime := time.Since(replayStartTime)
+				// If we're ahead of schedule, sleep
+				if currentElapsedTime < originalElapsedTime {
+					sleepDuration := originalElapsedTime - currentElapsedTime
+					op.logger.Log.Info("Workload replay ahead of schedule, sleeping", "name",
+						op.name, "progress", replayProgress, "duration", sleepDuration)
+					select {
+					case <-time.After(sleepDuration):
+						// Sleep finished, continue to the next iteration
+					case <-execContext.workloadReplyCtx.Done():
+						op.logger.Log.Info("%s: Workload replay canceled during sleep: %v", op.name, execContext.workloadReplyCtx.Err())
+						return execContext.workloadReplyCtx.Err()
+					}
+				} else {
+					op.logger.Log.Info("Workload replay behind schedule, running next query", "name", op.name, "progress", replayProgress)
 				}
 			} else {
-				op.logger.Log.Info("Workload replay behind schedule, running next query", "name", op.name, "progress", replayProgress)
+				// Quick replay mode — run queries immediately
+				op.logger.Log.Info("Quick replay mode active — running next query immediately", "name", op.name, "progress", replayProgress)
 			}
 
 			// Preprocess query
