@@ -376,6 +376,11 @@ type VerticaDBSpec struct {
 	// A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
 	// envFrom field. All the key-value pairs in the configmap/secret are added to the environment as-is.
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Controls a planned shutdown of the database.
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -1210,6 +1215,8 @@ const (
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
 	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
 	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
+	// MainClusterPodsTerminated indicates that all main cluster pods have been terminated
+	MainClusterPodsTerminated = "MainClusterPodsTerminated"
 )
 
 const (

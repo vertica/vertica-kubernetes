@@ -270,7 +270,10 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 func (s *StatusReconciler) setSubclusterStatusWhenShutdown(podIndex int32, curStat *vapi.SubclusterStatus) {
 	curStat.Detail[podIndex].UpNode = false
 	curStat.Detail[podIndex].Installed = false
-	curStat.Detail[podIndex].AddedToDB = false
+	// When the subcluster is shutdown, we consider all pods
+	// as added to db to avoid confusion. They are still nodes
+	// in the db even though they are shutdown.
+	curStat.Detail[podIndex].AddedToDB = true
 }
 
 func (s *StatusReconciler) updateShutdownStatus(sc *vapi.Subcluster, curStat *vapi.SubclusterStatus) {

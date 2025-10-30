@@ -652,8 +652,8 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 		return s.Size
 	}
 	scStatusMap := vdb.GenSubclusterStatusMap()
-	ss := scStatusMap[s.Name]
-	if ss != nil && ss.Shutdown {
+	sc := scStatusMap[s.Name]
+	if sc != nil && sc.Shutdown {
 		return 0
 	}
 	return s.Size
@@ -1876,6 +1876,32 @@ func (v *VerticaDB) UseVClusterOpsDeployment() bool {
 
 	// when deploymentMethod is empty in status, check annotation
 	return vmeta.UseVClusterOps(v.Annotations)
+}
+
+// IsMainClusterStopped returns true if the main cluster is shutdown
+// or is marked for shutdown.
+func (v *VerticaDB) IsMainClusterStopped() bool {
+	return v.Spec.Shutdown || v.areAllSubclustersShutdown()
+}
+
+// ShouldKeepMainClusterShutdown returns true if the main cluster is
+// effectively shutdown and its pods are terminated.
+func (v *VerticaDB) ShouldKeepMainClusterShutdown() bool {
+	return v.Spec.Shutdown && v.IsStatusConditionTrue(MainClusterPodsTerminated)
+}
+
+func (v *VerticaDB) areAllSubclustersShutdown() bool {
+	scSbMap := v.GenSubclusterSandboxStatusMap()
+	for i := range v.Spec.Subclusters {
+		scName := v.Spec.Subclusters[i].Name
+		if scSbMap[scName] == MainCluster {
+			scStatus, ok := v.FindSubclusterStatus(scName)
+			if !ok || !scStatus.Shutdown {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.

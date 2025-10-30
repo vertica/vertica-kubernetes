@@ -56,7 +56,7 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
-	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
+	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
 

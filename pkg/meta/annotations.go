@@ -437,11 +437,11 @@ const (
 
 	// This indicates that the subcluster shutdown is controlled by the sandbox
 	// through the sandbox's shutdown field.
-	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
+	ShutdownDrivenBySandboxAnnotation = "vertica.com/shutdown-driven-by-sandbox"
 
-	// This indicates that the subcluster shutdown is controlled by the subcluster's
-	// shutdown field.
-	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
+	// This indicates that the subcluster shutdown is controlled by the main
+	// cluster through the vdb's shutdown field.
+	ShutdownDrivenByMainAnnotation = "vertica.com/shutdown-driven-by-main"
 
 	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
 	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
@@ -882,14 +882,12 @@ func GetVPDepNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ProxyDeploymentNameAnnotation, "")
 }
 
-func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
+func IsShutdownDrivenBySandbox(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandboxAnnotation, false)
 }
 
-// GetShutdownDrivenBySubcluster returns the bool value if the operator
-// will shutdown the subcluster and not try to restart it.
-func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, ShutdownDrivenBySubcluster, false)
+func IsShutdownDrivenByMain(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenByMainAnnotation, false)
 }
 
 // GetExtraLocalPaths returns the comma separated list of extra local paths

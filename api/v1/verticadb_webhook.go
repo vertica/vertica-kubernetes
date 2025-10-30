@@ -207,6 +207,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkSClusterToBeSandboxedShutdownUnset(allErrs)
 	allErrs = v.checkShutdownForScaleOutOrIn(oldObj, allErrs)
 	allErrs = v.checkIfAnyOpInProgressBeforeTLSChange(oldObj, allErrs)
+	allErrs = v.checkAnyChangeWhenMainIsShutdown(oldObj, allErrs)
 	return allErrs
 }
 
@@ -617,6 +618,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateProxyConfig(allErrs)
 	allErrs = v.validateNMASecret(allErrs)
 	allErrs = v.validateAutoRotateConfig(allErrs)
+	allErrs = v.validateMainClusterShutdown(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -3064,6 +3066,28 @@ func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
 	return reflect.DeepEqual(oldCopy, newCopy)
 }
 
+// nothingChangedWhenMainIsShutdown ensures that when main db is shutdown, no fields other than shutdown in spec are changed
+func (v *VerticaDB) nothingChangedWhenMainIsShutdown(oldObj *VerticaDB) bool {
+	oldSpec := oldObj.Spec
+	newSpec := v.Spec
+
+	// Allow only shutdown to change
+	oldCopy := oldSpec
+	newCopy := newSpec
+	oldCopy.Shutdown = false
+	newCopy.Shutdown = false
+	for i := range oldCopy.Subclusters {
+		oldCopy.Subclusters[i].Shutdown = false
+		oldCopy.Subclusters[i].Annotations = nil
+	}
+	for i := range newCopy.Subclusters {
+		newCopy.Subclusters[i].Shutdown = false
+		newCopy.Subclusters[i].Annotations = nil
+	}
+
+	return reflect.DeepEqual(oldCopy, newCopy)
+}
+
 // setDefaultAdditionalBuckets sets default additional buckets configurations
 func (v *VerticaDB) setDefaultAdditionalBuckets() {
 	if !v.HasAdditionalBuckets() {
@@ -3241,6 +3265,16 @@ func (v *VerticaDB) findChangedTLSFields(oldObj *VerticaDB) []string {
 	return errMsgs
 }
 
+// checkAnyChangeWhenMainIsShutdown ensures that when main db is shutdown, no fields other than shutdown in spec are changed
+func (v *VerticaDB) checkAnyChangeWhenMainIsShutdown(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.Shutdown && !v.nothingChangedWhenMainIsShutdown(oldObj) {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec"), "",
+			"when spec.shutdown is true, no other changes are allowed except changing spec.shutdown to false"))
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) compareSpecAndStatus() []string {
 	errMsgs := []string{}
 	if v.IsSubclusterOpNeeded() {
@@ -3283,6 +3317,32 @@ func (s *Subcluster) setDefaultProxySubcluster(useProxy bool) {
 			s.Proxy.Resources = nil
 		}
 	}
+}
+
+// validateMainClusterShutdown ensures that the main database can only be shut down
+// when there are no sandboxes, the database is initialized, and a restart is not needed.
+func (v *VerticaDB) validateMainClusterShutdown(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.Shutdown {
+		if !v.IsDBInitialized() {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec").Child("shutdown"), v.Spec.Shutdown,
+					"cannot set shutdown to true when the database is not initialized"),
+			)
+		}
+		if v.IsStatusConditionTrue(VerticaRestartNeeded) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec").Child("shutdown"), v.Spec.Shutdown,
+					"cannot set shutdown to true when a restart is needed"),
+			)
+		}
+		if v.isUpgradeInProgress() {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec").Child("shutdown"), v.Spec.Shutdown,
+					"cannot set shutdown to true when an upgrade is in progress"),
+			)
+		}
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) validateAutoRotateConfig(allErrs field.ErrorList) field.ErrorList {
