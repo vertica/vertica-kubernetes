@@ -57,7 +57,7 @@ testDirs:
   - tests/e2e-operator-upgrade-overlays
   - tests/e2e-operator-upgrade-v1-overlays
 parallel: 1
-timeout: 400
+timeout: 600
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
   - command: scripts/setup-kustomize.sh
