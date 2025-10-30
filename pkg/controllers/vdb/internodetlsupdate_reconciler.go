@@ -59,16 +59,20 @@ func MakeInterNodeTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will rotate TLS certificate or mode.
 func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	h.Log.Info("libo: inter 1")
 	if h.Vdb.IsTLSCertRollbackNeeded() && h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetTLSCertRollbackReason() ==
 		vapi.RollbackAfterInterNodeCertRotationReason {
 		return h.rollback(ctx)
 	}
+	h.Log.Info("libo: inter 2")
 	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
+	h.Log.Info("libo: inter 3")
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+	h.Log.Info("libo: inter 4")
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -81,13 +85,21 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		res, err2 := rec.Reconcile(ctx, req)
 		return res, err2
 	}
+	h.Log.Info("libo: inter 5")
 	if !h.Vdb.IsInterNodeConfigEnabled() {
 		return ctrl.Result{}, nil
 	}
+	h.Log.Info("libo: inter 6")
 	// no-op if neither inter node secret nor tls mode
 	// changed
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
+	}
+	h.Log.Info("libo: inter 7")
+	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed")
+	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to false")
+		return ctrl.Result{}, err
 	}
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
@@ -108,7 +120,7 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return res, err
 	}
 
-	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
+	cond = vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
 		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to true")
 		return ctrl.Result{}, err

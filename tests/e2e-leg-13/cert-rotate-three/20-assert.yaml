@@ -7,7 +7,6 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
-message: Starting tls cert rotation for HTTP with secret name custom-cert2 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
@@ -18,7 +17,26 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
-message: Successfully rotated HTTP tls cert with secret name custom-cert2 and mode verify_ca
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both
+---
+apiVersion: v1
+kind: Event
+reason: NMATLSCertRotationSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both
 ---
 apiVersion: v1
 kind: Event
@@ -29,7 +47,6 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
-message: Starting tls cert rotation for Server with secret name custom-cert3 and mode try_verify
 ---
 apiVersion: v1
 kind: Event
@@ -40,7 +57,26 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
-message: Successfully rotated Server tls cert with secret name custom-cert3 and mode try_verify
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both  
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
@@ -63,11 +99,16 @@ status:
   - reason: Completed
     status: "False"
     type: ClientServerTLSConfigUpdateFinished 
+  - reason: Completed
+    status: "True"
+    type: InterNodeTLSConfigUpdateFinished     
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
   tlsConfigs:
     - name: httpsNMA
-      secret: custom-cert2
+      secret: custom-cert
     - name: clientServer
-      secret: custom-cert3
+      secret: custom-cert1
+    - name: interNode
+      secret: custom-cert1      

@@ -7,36 +7,40 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: Starting tls cert rotation for HTTP with secret name custom-cert1 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
-reason: HTTPSTLSUpdateSucceeded
+reason: HTTPSTLSUpdateFailed
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: Failed to rotate HTTP tls cert with secret name custom-cert1 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
-reason: NMATLSCertRotationStarted
+reason: TLSCertRollbackStarted
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: Starting HTTP TLS cert rollback after failed update
 ---
 apiVersion: v1
 kind: Event
-reason: NMATLSCertRotationSucceeded
+reason: TLSCertRollbackSucceeded
 source:
   component: verticadb-operator
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: HTTP TLS cert rollback completed successfully
 ---
 apiVersion: v1
 kind: Event
@@ -47,6 +51,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: Starting tls cert rotation for Server with secret name custom-cert2 and mode try_verify
 ---
 apiVersion: v1
 kind: Event
@@ -57,11 +62,41 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-cert-rotate-both
+message: Successfully rotated Server tls cert with secret name custom-cert2 and mode try_verify
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both
+message: Starting tls cert rotation for Internode with secret name custom-cert2 and mode verify_ca
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-cert-rotate-both
+message: Successfully rotated Internode tls cert with secret name custom-cert2 and mode verify_ca
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-cert-rotate-both
+spec:
+  httpsNMATLS:
+    secret: custom-cert
+  clientServerTLS:
+    secret: custom-cert2
+  interNodeTLS:
+    secret: custom-cert2    
 status:
   conditions:
   - reason: Detected
@@ -79,6 +114,15 @@ status:
   - reason: Completed
     status: "False"
     type: ClientServerTLSConfigUpdateFinished 
+  - reason: Completed
+    status: "True"
+    type: InterNodeTLSConfigUpdateFinished     
+  - reason: Completed
+    status: "False"
+    type: TLSCertRollbackNeeded
+  - reason: Completed
+    status: "False"
+    type: TLSCertRollbackInProgress 
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
@@ -86,4 +130,6 @@ status:
     - name: httpsNMA
       secret: custom-cert
     - name: clientServer
-      secret: custom-cert1
+      secret: custom-cert2
+    - name: interNode
+      secret: custom-cert2      
