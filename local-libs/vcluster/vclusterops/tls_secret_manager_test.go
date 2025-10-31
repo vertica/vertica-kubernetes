@@ -78,6 +78,9 @@ func TestValidateTLSConfigurationMap(t *testing.T) {
 	cfg.ConfigType = ServerTLSKeyPrefix
 	err = cfg.validate(logger)
 	assert.Nil(t, err)
+	cfg.ConfigType = InterNodeTLSKeyPrefix
+	err = cfg.validate(logger)
+	assert.Nil(t, err)
 
 	// Negative: missing AWS region
 	awsConfigMissingRegion := cloneMap(awsConfig)
