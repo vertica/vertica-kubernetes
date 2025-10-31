@@ -16,9 +16,28 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/vertica/vcluster/commands"
 )
 
 func main() {
+	// this channel is used to handle the ctrl-c signal
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+
+	// handle ctrl-c signal and reset cursor
+	go func() {
+		<-sigs
+
+		fmt.Println("\n\nCtrl-C received, exiting.")
+		fmt.Print("\x1b[?25h") // show cursor back
+
+		os.Exit(0)
+	}()
+
 	commands.Execute()
 }
