@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/vclusterops/util"
@@ -32,10 +33,11 @@ type httpsStopDBOp struct {
 	mainCluster   bool
 	RequestParams map[string]string
 	isEon         bool
+	forceKill     bool
 }
 
 func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout *int, sandbox string, mainCluster, isEon bool) (httpsStopDBOp, error) {
+	httpsPassword *string, timeout *int, sandbox string, mainCluster, isEon bool, forceKill bool) (httpsStopDBOp, error) {
 	op := httpsStopDBOp{}
 	op.name = "HTTPSStopDBOp"
 	op.description = "Stop database"
@@ -43,12 +45,14 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 	op.sandbox = sandbox
 	op.mainCluster = mainCluster
 	op.isEon = isEon
+	op.forceKill = forceKill
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
 	if timeout != nil && *timeout != 0 {
 		op.RequestParams["timeout"] = strconv.Itoa(*timeout)
 	}
+	op.RequestParams["forceKill"] = strconv.FormatBool(forceKill)
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -170,6 +174,11 @@ func (op *httpsStopDBOp) processResult(_ *opEngineExecContext) error {
 				allErrs = errors.Join(allErrs, err)
 			}
 		} else {
+			if strings.Contains(response["detail"], "Shutdown: aborting shutdown") {
+				allErrs = errors.Join(allErrs, fmt.Errorf("%s"+
+					"\nUse the --force-kill option to close sessions. See stop_db --help", response["detail"]))
+				continue
+			}
 			// If the timeout is set to 0, we will not use a draining shutdown.
 			// A timeout of 0 indicates that eonDB is being used, so the response should be "Shutdown: sync complete".
 			// Otherwise, the response should be "Shutdown: moveout complete".

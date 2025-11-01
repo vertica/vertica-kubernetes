@@ -54,6 +54,12 @@ Examples:
   # Stop a database with config file using password authentication
   vcluster stop_db --password "PASSWORD" \
     --config /opt/vertica/config/vertica_cluster.yaml
+
+  # Stop a database with config file using password authentication
+  # Close all active sessions before stopping the database
+  vcluster stop_db --password "PASSWORD" \
+    --config /opt/vertica/config/vertica_cluster.yaml
+	--force-kill --drain-seconds=0
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, eonModeFlag, configFlag, passwordFlag},
 	)
@@ -95,6 +101,12 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Whether to sync the catalog before stopping the database",
 	)
+	cmd.Flags().BoolVar(
+		&c.stopDBOptions.ForceKill,
+		"force-kill",
+		false,
+		"Close all active sessions before stopping the database",
+	)
 }
 
 // setHiddenFlags will set the hidden flags the command has.
@@ -106,13 +118,7 @@ func (c *CmdStopDB) setHiddenFlags(cmd *cobra.Command) {
 		false,
 		"",
 	)
-	cmd.Flags().BoolVar(
-		&c.stopDBOptions.ForceKill,
-		"force-kill",
-		false,
-		"",
-	)
-	hideLocalFlags(cmd, []string{"if-no-users", "force-kill"})
+	hideLocalFlags(cmd, []string{"if-no-users"})
 }
 
 func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {

@@ -214,7 +214,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	}
 
 	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, options.UserName, options.Password, options.DrainSeconds,
-		options.SandboxName, options.MainCluster, options.IsEon)
+		options.SandboxName, options.MainCluster, options.IsEon, options.ForceKill)
 	if err != nil {
 		return instructions, err
 	}
