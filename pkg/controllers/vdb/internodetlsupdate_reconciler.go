@@ -59,20 +59,16 @@ func MakeInterNodeTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will rotate TLS certificate or mode.
 func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	h.Log.Info("libo: inter 1")
 	if h.Vdb.IsTLSCertRollbackNeeded() && h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetTLSCertRollbackReason() ==
 		vapi.RollbackAfterInterNodeCertRotationReason {
 		return h.rollback(ctx)
 	}
-	h.Log.Info("libo: inter 2")
 	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: inter 3")
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
-	h.Log.Info("libo: inter 4")
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -85,21 +81,16 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		res, err2 := rec.Reconcile(ctx, req)
 		return res, err2
 	}
-	h.Log.Info("libo: inter 5")
 	if !h.Vdb.IsInterNodeConfigEnabled() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: inter 6")
 	// no-op if neither inter node secret nor tls mode
 	// changed
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
 	}
-	h.Log.Info("libo: inter 7")
-	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionFalse, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to false")
-		return ctrl.Result{}, err
+	if err2 := h.updateCondition(ctx, metav1.ConditionFalse); err2 != nil {
+		return ctrl.Result{}, err2
 	}
 	upPods := h.PFacts.FindUpPods("")
 	if len(upPods) == 0 {
@@ -109,20 +100,14 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return res, err1
 	}
 
-	upHostToSandbox := make(map[string]string)
-	initiator := upPods[0].GetPodIP()
-	for _, p := range upPods {
-		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
-	}
+	initiator, upHostToSandbox := h.prepareHosts(upPods)
 
 	res, err := h.Manager.updateTLSConfig(ctx, initiator, upHostToSandbox)
 	if verrors.IsReconcileAborted(res, err) || h.Vdb.IsTLSCertRollbackNeeded() {
 		return res, err
 	}
 
-	cond = vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, metav1.ConditionTrue, "Completed")
-	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to true")
+	if err := h.updateCondition(ctx, metav1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
@@ -201,4 +186,22 @@ func (h *InterNodeTLSUpdateReconciler) updateTLSConfigEnabledInVdb(ctx context.C
 		}
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
+}
+
+func (h *InterNodeTLSUpdateReconciler) updateCondition(ctx context.Context, trueOrFalse metav1.ConditionStatus) error {
+	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, trueOrFalse, "Completed")
+	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
+		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to true")
+		return err
+	}
+	return nil
+}
+
+func (h *InterNodeTLSUpdateReconciler) prepareHosts(upPods []*podfacts.PodFact) (initiator string, upHostToSandbox map[string]string) {
+	upHostToSandbox = make(map[string]string)
+	initiator = upPods[0].GetPodIP()
+	for _, p := range upPods {
+		upHostToSandbox[p.GetPodIP()] = p.GetSandbox()
+	}
+	return initiator, upHostToSandbox
 }
