@@ -69,6 +69,9 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+	if !h.Vdb.IsInterNodeConfigEnabled() {
+		return ctrl.Result{}, nil
+	}
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -80,9 +83,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.InterNodeTLSConfigName, h.Manager)
 		res, err2 := rec.Reconcile(ctx, req)
 		return res, err2
-	}
-	if !h.Vdb.IsInterNodeConfigEnabled() {
-		return ctrl.Result{}, nil
 	}
 	// no-op if neither inter node secret nor tls mode
 	// changed
