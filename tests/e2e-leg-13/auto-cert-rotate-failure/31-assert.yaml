@@ -46,4 +46,3 @@ status:
     - cert4
     autoRotateFailedSecret: cert2
   - name: clientServer
-  - name: interNode

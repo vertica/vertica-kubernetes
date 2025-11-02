@@ -27,7 +27,6 @@ status:
   tlsConfigs:
     - name: httpsNMA
     - name: clientServer
-    - name: interNode
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

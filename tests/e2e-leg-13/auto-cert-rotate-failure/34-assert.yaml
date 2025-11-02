@@ -23,4 +23,3 @@ status:
     - cert3
     - cert4
   - name: clientServer
-  - name: interNode
