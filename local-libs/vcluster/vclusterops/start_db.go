@@ -173,7 +173,7 @@ func (vcc VClusterCommands) VStartDatabase(options *VStartDatabaseOptions) (vdbP
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.runInSandbox(vcc.Log, &vdb, options.Sandbox)
 	if runError != nil {
-		return nil, fmt.Errorf("failed to start the database: %w", runError)
+		return nil, fmt.Errorf("fail to start database: %w", runError)
 	}
 
 	// get vdb info from the running database
@@ -209,7 +209,7 @@ func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, v
 	clusterOpEngine := makeClusterOpEngine(preInstructions, options)
 	runError := clusterOpEngine.run(vcc.Log)
 	if runError != nil {
-		return nil, fmt.Errorf("failed in the start database pre-checks: %w", runError)
+		return nil, fmt.Errorf("fail to start database pre-checks: %w", runError)
 	}
 
 	// If requested, remove any provided hosts that are not in the catalog. Use
@@ -223,7 +223,7 @@ func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, v
 	if options.ReadFromConfig && !options.IsEon {
 		err = vcc.quorumCheck(numTotalNodes, len(options.Hosts))
 		if err != nil {
-			return nil, fmt.Errorf("failed in the start database pre-checks: %w", err)
+			return nil, fmt.Errorf("fail to start database pre-checks: %w", err)
 		}
 	}
 
