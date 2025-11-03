@@ -264,7 +264,7 @@ func (c *CmdBase) setConfigFlags(cmd *cobra.Command, flags []string) {
 		cmd.Flags().StringToStringVar(
 			&dbOptions.ConfigurationParameters, configParamFlag,
 			map[string]string{},
-			"A comma-separated list of *`PARAMETER`*`=`*`VALUE`* pairs.\n"+
+			"A comma-separated list of `parameter=value` pairs.\n"+
 				"Parameters specified with this option override the ones in configuration parameter files, if any,\n"+
 				"and take the following parameters: AWSAuth, AWSEndpoint, AWSEneableHttps, AWSRegion")
 		cmd.Flags().StringVar(
