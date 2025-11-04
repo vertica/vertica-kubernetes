@@ -89,7 +89,7 @@ func (c *CmdStartNodes) setLocalFlags(cmd *cobra.Command) {
 		&c.vnodeHostMap,
 		startNodeFlag,
 		map[string]string{},
-		"A comma-separated list of `node_name=ip_address` pairs, specifying the nodes to restart.\n"+
+		"A comma-separated list of node_name=ip_address pairs, specifying the nodes to restart.\n"+
 			"If ip_address doesn't match the database's listed IP address for that node, Vertica updates\n"+
 			"its catalog information for that node with the specified IP address and then restarts the node.",
 	)
