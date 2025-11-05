@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +32,9 @@ import (
 // user provided a custom license secret.
 func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (string, error) {
 	if vdb.Spec.LicenseSecret == "" {
+		if vdb.UseVClusterOpsDeployment() && !meta.GetAllowCELicense(vdb.Annotations) {
+			return "", fmt.Errorf("license error. Field Spec.LicenseSecret is not set")
+		}
 		return paths.CELicensePath, nil
 	}
 
@@ -44,17 +48,24 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 	}
 
 	if len(secret.Data) == 0 {
-		return paths.CELicensePath, nil
+		return "", fmt.Errorf("license error. Secret %s has no license data in it", vdb.Spec.LicenseSecret)
+	}
+	// if admintools is used or allow-ce-license annotation is set to true
+	if !vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(vdb.Annotations) {
+		licenseNames := make([]string, 0, len(secret.Data))
+		for k := range secret.Data {
+			licenseNames = append(licenseNames, k)
+		}
+		sort.Strings(licenseNames)
+		return fmt.Sprintf("%s/%s", paths.MountedLicensePath, licenseNames[0]), nil
 	}
 
 	// This function only returns a single license -- to be used with
-	// create DB call. In case the secret has multiple licenses, we will pick
-	// the one that comes first alphabetically.  The rest of the licenses will
-	// be mounted in the container that the customer can then install.
-	licenseNames := make([]string, 0, len(secret.Data))
-	for k := range secret.Data {
-		licenseNames = append(licenseNames, k)
+	// create DB call. In case the secret has multiple licenses, after
+	// license validation, a valid license key will be saved into annotation for db creation
+	validLicenseKey := meta.GetValidLicenseKey(vdb.Annotations)
+	if _, ok := secret.Data[validLicenseKey]; !ok {
+		return "", fmt.Errorf("cannot find license key %s in secret %s", validLicenseKey, vdb.Spec.LicenseSecret)
 	}
-	sort.Strings(licenseNames)
-	return fmt.Sprintf("%s/%s", paths.MountedLicensePath, licenseNames[0]), nil
+	return fmt.Sprintf("%s/%s", paths.MountedLicensePath, validLicenseKey), nil
 }

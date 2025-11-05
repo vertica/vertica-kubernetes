@@ -52,6 +52,14 @@ var _ = Describe("obj_reconcile", func() {
 	const envName = "EXTRA_ENV"
 	const extraKey = "extra_key"
 
+	BeforeEach(func() {
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
+	})
+
+	AfterEach(func() {
+		deleteTestSecret(ctx)
+	})
+
 	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
 		pfacts := podfacts.MakePodFactsWithCacheManager(vdbRec, &cmds.FakePodRunner{}, logger, &testPassword, vdbRec.CacheManager)

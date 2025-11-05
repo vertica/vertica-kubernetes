@@ -30,6 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -88,11 +89,6 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
 	}
-
-	if c.Vdb.IsMainClusterStopped() {
-		return ctrl.Result{}, fmt.Errorf("cannot create database with spec.shutdown set to true")
-	}
-
 	var err error
 	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
 	if err != nil {

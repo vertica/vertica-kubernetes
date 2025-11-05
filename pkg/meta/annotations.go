@@ -494,6 +494,10 @@ const (
 	// This is used to override the default behavior of setting tls to true.
 	// For testing purposes only.
 	DefaultTLSEnabledIsFalseAnnotation = "vertica.com/default-tls-enabled-is-false"
+	// This is an internal annotation. It is used to store the license key used to create a new db
+	ValidLicenseKeyAnnotation = "vertica.com/valid-license-key"
+
+	AllowCELicenseAnnotation = "vertica.com/allow-ce-license"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -947,6 +951,15 @@ func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
 // GetHTTPSPollingMaxRetries returns the max number of retries to use for HTTPS polling during HTTPS cert rotation (default 0).
 func GetHTTPSPollingMaxRetries(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, HTTPSPollingMaxRetriesAnnotation, 0)
+}
+
+// GetValidLicenseKey returns a valid license key
+func GetValidLicenseKey(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ValidLicenseKeyAnnotation, "")
+}
+
+func GetAllowCELicense(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, AllowCELicenseAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

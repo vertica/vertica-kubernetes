@@ -143,7 +143,7 @@ func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
 func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
-	return &VerticaDB{
+	vdb := &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       VerticaDBKind,
@@ -153,8 +153,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:         "v23.4.0",
+				vmeta.ValidLicenseKeyAnnotation: "license.dat",
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -163,6 +164,7 @@ func MakeVDB() *VerticaDB {
 			Annotations:        make(map[string]string),
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
+			LicenseSecret:      "test-license-secret",
 			Communal: CommunalStorage{
 				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
@@ -198,6 +200,7 @@ func MakeVDB() *VerticaDB {
 			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
+	return vdb
 }
 
 func BoolPtr(boolval bool) *bool {

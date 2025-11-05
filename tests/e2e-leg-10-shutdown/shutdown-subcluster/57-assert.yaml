@@ -18,30 +18,3 @@ metadata:
 status:
   availableReplicas: 0
   replicas: 1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-subcluster-shutdown
-status:
-  subclusters:
-    - addedToDBCount: 4
-      upNodeCount: 4
-      name: pri1
-      type: primary
-    - addedToDBCount: 3
-      upNodeCount: 3
-      name: pri2
-      type: primary
-    - addedToDBCount: 3
-      upNodeCount: 3
-      name: sec1
-      type: sandboxprimary
-    - addedToDBCount: 1
-      upNodeCount: 0
-      name: sec2
-      type: sandboxsecondary
-    - addedToDBCount: 1
-      upNodeCount: 1
-      name: sec3
-      type: sandboxsecondary

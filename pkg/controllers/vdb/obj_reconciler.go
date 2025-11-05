@@ -72,6 +72,9 @@ const (
 // An annotation added to the deployment by kubernetes
 const protectedAnnotation = "deployment.kubernetes.io/revision"
 
+// the name of the volume whose source is the license secret
+const licenseVolumeName = "licensing"
+
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
@@ -787,7 +790,8 @@ func (o *ObjReconciler) handleStatefulSetUpdate(ctx context.Context, sc *vapi.Su
 	// If the NMA deployment type or health check setting is changing,
 	// we cannot do a rolling update for this change. All pods need to have the
 	// same NMA deployment type. So, we drop the old sts and create a fresh one.
-	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) {
+	if isNMADeploymentDifferent(curSts, expSts) || (!podsNotRunning && isHealthCheckDifferent(curSts, expSts)) ||
+		isLicSecretUpdatedBeforeDBCreation(curSts, expSts, o.Vdb) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
 		// Invalidate the pod facts cache since we are recreating a new sts
 		o.PFacts.Invalidate()
@@ -974,6 +978,32 @@ func mergeAnnotations(existing, expected map[string]string) map[string]string {
 // NMA sidecar deployment and the other one doesn't.
 func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
 	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
+}
+
+// isLicSecretUpdatedBeforeDBCreation() reads license secret name from the volume source for both current
+// expected stateful sets. It will return true if two license secret names are different. The sts will be
+// rebuilt afterwards.
+func isLicSecretUpdatedBeforeDBCreation(curSts, expSts *appsv1.StatefulSet, vdb *vapi.VerticaDB) bool {
+	curSpec := curSts.Spec.Template.Spec
+	expSpec := expSts.Spec.Template.Spec
+	var curLicenseSecretName, expLicenseSecretName string
+	for i := 0; i < len(curSpec.Volumes); i++ {
+		if curSpec.Volumes[i].Name == licenseVolumeName {
+			if curSpec.Volumes[i].VolumeSource.Secret != nil {
+				curLicenseSecretName = curSpec.Volumes[i].VolumeSource.Secret.SecretName
+				break
+			}
+		}
+	}
+	for i := 0; i < len(expSpec.Volumes); i++ {
+		if expSpec.Volumes[i].Name == licenseVolumeName {
+			if expSpec.Volumes[i].VolumeSource.Secret != nil {
+				expLicenseSecretName = expSpec.Volumes[i].VolumeSource.Secret.SecretName
+				break
+			}
+		}
+	}
+	return !vdb.IsDBInitialized() && curLicenseSecretName != "" && expLicenseSecretName != curLicenseSecretName
 }
 
 // isHealthCheckDifferent will return true if the two stateful sets use different health checks
