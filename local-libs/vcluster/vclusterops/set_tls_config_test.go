@@ -47,18 +47,57 @@ func TestVSetTLSConfig_validateParseOptions(t *testing.T) {
 		"TLSMode":       "try_verify",
 		"SecretManager": "kubernetes",
 		"SecretName":    "test-secret",
+		"KeyDataKey":    "test-keydatakey",
+		"CADataKey":     "test-cadatakey",
+		"CertDataKey":   "test-certdatakey",
+		"Namespace":     "test-namspace",
 	})
 	err = opt.validateParseOptions(logger)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, opt.ServerTLSConfig.GrantAuth, false, "by default client server's GrantAuth is set to false")
+	assert.Equal(t, opt.InterNodeTLSConfig.GrantAuth, false, "by default internode's GrantAuth is set to false")
 	assert.Equal(t, opt.HTTPSTLSConfig.GrantAuth, true, "by default https' GrantAuth is set to true")
 
 	// negative: only one tls config can set GrantAuth to true.
 	opt.ServerTLSConfig.GrantAuth = true
 	err = opt.validateParseOptions(logger)
 	assert.Error(t, err)
+	opt.ServerTLSConfig.GrantAuth = false
 
 	assert.Equal(t, opt.ServerTLSConfig.ConfigType, ServerTLSKeyPrefix, "client server ConfigType is server")
 	assert.Equal(t, opt.HTTPSTLSConfig.ConfigType, HTTPSTLSKeyPrefix, "HTTPS ConfigType is https")
+
+	// negative: empty SecretName
+	opt.InterNodeTLSConfig.SetConfigMap(map[string]string{
+		"TLSMode":       "verify_ca",
+		"SecretManager": "kubernetes",
+		"KeyDataKey":    "test-keydatakey",
+		"CADataKey":     "test-cadatakey",
+		"CertDataKey":   "test-certdatakey",
+		"Namespace":     "test-namspace",
+	})
+	err = opt.validateParseOptions(logger)
+	assert.Error(t, err)
+
+	// positive
+	opt.InterNodeTLSConfig.SetConfigMap(map[string]string{
+		"TLSMode":       "verify_ca",
+		"SecretManager": "kubernetes",
+		"SecretName":    "test-secret",
+		"KeyDataKey":    "test-keydatakey",
+		"CADataKey":     "test-cadatakey",
+		"CertDataKey":   "test-certdatakey",
+		"Namespace":     "test-namspace",
+	})
+	err = opt.validateParseOptions(logger)
+	assert.NoError(t, err)
+
+	assert.Equal(t, opt.InterNodeTLSConfig.GrantAuth, false, "by default internode's GrantAuth is set to false")
+	// negative: internode tls config cannot set GrantAuth to true.
+	opt.InterNodeTLSConfig.GrantAuth = true
+	err = opt.validateParseOptions(logger)
+	assert.Error(t, err)
+
+	assert.Equal(t, opt.InterNodeTLSConfig.ConfigType, InterNodeTLSKeyPrefix, "internode ConfigType is data_channel")
 }
