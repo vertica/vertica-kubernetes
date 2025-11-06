@@ -220,7 +220,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	}
 
 	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(options.Hosts,
-		usePassword, options.UserName, options.SandboxName, options.MainCluster, options.Password, StopDB)
+		usePassword, options.UserName, options.SandboxName, options.MainCluster, options.Password, StopDB, options.DBName)
 	if err != nil {
 		return instructions, err
 	}

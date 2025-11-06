@@ -275,7 +275,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 			mainCluster = true
 		}
 		checkDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(hosts,
-			options.usePassword, options.UserName, sandbox, mainCluster, options.Password, ReIP)
+			options.usePassword, options.UserName, sandbox, mainCluster, options.Password, ReIP, options.DBName)
 		if err != nil {
 			return instructions, err
 		}
