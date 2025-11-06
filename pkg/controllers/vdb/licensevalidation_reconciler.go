@@ -77,6 +77,7 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 	// do validation for new license secret
 	if r.licenseValidationRequired() {
+		r.log.Info("Validating license", "secret name", r.vdb.Spec.LicenseSecret)
 		res, err := r.validateLicenses(ctx)
 		return res, err
 	}
@@ -86,17 +87,17 @@ func (r *LicenseValidationReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	if !r.shouldDoDailyValidation(lastSuccessfulValidation) {
 		return ctrl.Result{}, nil
 	}
-	r.log.Info("Validate licenses at " + time.Now().String() + ", validated last time at " + lastSuccessfulValidation.String())
+	r.log.Info("Validating licenses", "last validation time", lastSuccessfulValidation.String(), "current time", time.Now().String())
 	return r.validateLicenses(ctx)
 }
 
-// shouldSkipLicenseValidattion() will return true when license validation should be skipped.
+// shouldSkipLicenseValidation() will return true when license validation should be skipped.
 func (r *LicenseValidationReconciler) shouldSkipLicenseValidation() bool {
 	return !r.vdb.UseVClusterOpsDeployment() || meta.GetAllowCELicense(r.vdb.Annotations) ||
 		r.vdb.IsStatusConditionTrue(vapi.UpgradeInProgress)
 }
 
-// licenseValidattionRequired() will return true when license validation is required.
+// licenseValidationRequired() will return true when license validation is required.
 func (r *LicenseValidationReconciler) licenseValidationRequired() bool {
 	// If no previous status, validation required
 	if r.vdb.Status.LicenseStatus == nil {

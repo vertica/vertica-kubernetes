@@ -52,7 +52,7 @@ func (v *VClusterOps) genCheckLicenseOptions(s *checklicense.Parms,
 	certs *tls.HTTPSCerts) *vops.VCheckLicenseOptions {
 	opts := vops.VCheckLicenseOptionsFactory()
 
-	opts.Hosts = append(opts.Hosts, s.InitiatorIPs...)
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIPs...)
 	opts.DBName = v.VDB.Spec.DBName
 
 	opts.IsEon = v.VDB.IsEON()

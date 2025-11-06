@@ -290,6 +290,25 @@ func BuildSuperuserPasswordSecret(vdb *vapi.VerticaDB, name, password string) *c
 	return secret
 }
 
+func CreateLicenseSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string, licenses []string) {
+	secret := BuildLicenseSecret(vdb, name, licenses)
+	Expect(c.Create(ctx, secret)).Should(Succeed())
+}
+
+func BuildLicenseSecret(vdb *vapi.VerticaDB, name string, licenses []string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vdb.Namespace,
+		},
+		Data: make(map[string][]byte, len(licenses)),
+	}
+	for i, l := range licenses {
+		secret.Data[fmt.Sprintf("license%d.dat", i)] = []byte(l)
+	}
+	return secret
+}
+
 func DeleteSecret(ctx context.Context, c client.Client, name string) {
 	nm := vapi.MakeVDBName() // The secret is expected to be created in the same namespace as the test standard vdb
 	secret := &corev1.Secret{}

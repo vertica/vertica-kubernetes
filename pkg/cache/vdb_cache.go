@@ -206,7 +206,7 @@ func makeVdbCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabl
 	singleContext.enabled = enabled
 	singleContext.certCache = NewItemCache[map[string][]byte](time.Duration(ttl)*time.Second, enabled)
 	singleContext.passwordCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
-	singleContext.timestampCache = NewItemCache[metav1.Time](time.Duration(24*365)*time.Hour, enabled)
+	singleContext.timestampCache = NewItemCache[metav1.Time](time.Duration(24*365)*time.Hour, true /* always cached*/)
 	return singleContext
 }
 
