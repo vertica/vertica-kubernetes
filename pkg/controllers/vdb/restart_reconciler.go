@@ -220,26 +220,8 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 
 	// For the pods without an NMA sidecar, we need to do startup check on them
 	if !r.Vdb.IsNMASideCarDeploymentEnabled() {
-		// If any of the pods have finished the startupProbe, we need to wait for
-		// the livenessProbe to kill them before starting. If we don't do this, we
-		// run the risk of having the livenessProbe delete the pod while we
-		// are doing the startup. The startupProbe has a much longer timeout and can
-		// accommodate a slow startup.
-		if _, pc, err := r.filterNonActiveStartupProbe(ctx, downPods); err != nil {
-			return ctrl.Result{}, err
-		} else if pc != 0 {
-			r.Log.Info("Some pods have active livenessProbes. Waiting for them to be rescheduled before trying a restart.",
-				"podCount", pc)
-			return r.makeResultForLivenessProbeWait(ctx)
-		}
-
-		// Similar to above, wait for any pods that are just slow starting. They
-		// probably have a large catalog. So, its best to wait it out. The health
-		// probes will eventually kill them if they can't make any progress.
-		if _, pc := r.filterSlowStartup(downPods); pc != 0 {
-			r.Log.Info("Some pods are slow starting up. Waiting for them to finish or abort before trying a cluster restart",
-				"podCount", pc)
-			return r.makeResultForLivenessProbeWait(ctx)
+		if shouldReturn, res, err := r.checkStartup(ctx, downPods); shouldReturn {
+			return res, err
 		}
 	}
 
@@ -247,6 +229,10 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
+	if !vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.AreAllPodsRunning() {
+		r.Log.Info("Not all pods are running. Cannot re-ip. Need to requeue")
+		return ctrl.Result{Requeue: true}, nil
+	}
 	// re-ip nodes. This is done ahead of the db check in case we need to update
 	// the IP of nodes that have been installed but not yet added to the db.
 	reIPPods := r.getReIPPods(false)
@@ -272,6 +258,33 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	r.PFacts.Invalidate()
 
 	return ctrl.Result{}, nil
+}
+
+func (r *RestartReconciler) checkStartup(ctx context.Context, downPods []*podfacts.PodFact) (bool, ctrl.Result, error) {
+	// If any of the pods have finished the startupProbe, we need to wait for
+	// the livenessProbe to kill them before starting. If we don't do this, we
+	// run the risk of having the livenessProbe delete the pod while we
+	// are doing the startup. The startupProbe has a much longer timeout and can
+	// accommodate a slow startup.
+	if _, pc, err := r.filterNonActiveStartupProbe(ctx, downPods); err != nil {
+		return true, ctrl.Result{}, err
+	} else if pc != 0 {
+		r.Log.Info("Some pods have active livenessProbes. Waiting for them to be rescheduled before trying a restart.",
+			"podCount", pc)
+		res, errLiveness := r.makeResultForLivenessProbeWait(ctx)
+		return true, res, errLiveness
+	}
+
+	// Similar to above, wait for any pods that are just slow starting. They
+	// probably have a large catalog. So, its best to wait it out. The health
+	// probes will eventually kill them if they can't make any progress.
+	if _, pc := r.filterSlowStartup(downPods); pc != 0 {
+		r.Log.Info("Some pods are slow starting up. Waiting for them to finish or abort before trying a cluster restart",
+			"podCount", pc)
+		res, errLiveness := r.makeResultForLivenessProbeWait(ctx)
+		return true, res, errLiveness
+	}
+	return false, ctrl.Result{}, nil
 }
 
 // containPods will check if source pods contain target pods
