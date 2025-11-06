@@ -137,6 +137,8 @@ RUN set -x \
   # if you need be. This isn't a security violation per se since you can control
   # at the pod level or above if the container is allowed to have elevated privileges.
   && echo "root:root" | chpasswd \
+  # Adjust /etc/shadow permissions so su root works on all Linux distros
+  && chmod 640 /etc/shadow \
   && echo "* -       nofile  65536" >> /etc/security/limits.conf \
   && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc
 
