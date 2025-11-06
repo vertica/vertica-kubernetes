@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -1516,6 +1517,9 @@ func (p *PodFacts) GetClusterExtendedName() string {
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS endpoint
 func checkIfNodeUpCmd(podIP string) string {
+	if net.IsIPv6(podIP) {
+		podIP = "[" + podIP + "]"
+	}
 	url := fmt.Sprintf("https://%s:%d%s",
 		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
