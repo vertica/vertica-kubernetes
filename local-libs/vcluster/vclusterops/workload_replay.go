@@ -32,6 +32,7 @@ type workloadReplayOptions struct {
 	ReplayResultsFileLocation string
 	Sandbox                   string
 	JobID                     int64
+	QuickReplay               bool
 }
 
 type VWorkloadReplayOptions struct {
@@ -391,6 +392,7 @@ func (vcc VClusterCommands) produceWorkloadReplayInstructions(options *VWorkload
 	if err != nil {
 		return instructions, err
 	}
+	nmaWorkloadReplayOp.quickReplay = options.QuickReplay
 
 	instructions = append(instructions,
 		&nmaHealthOp,
