@@ -18,10 +18,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -32,23 +32,6 @@ import (
  *
  * Implements ClusterCommand interface
  */
-
-const (
-	PkgStatusYes = "Yes"
-	PkgStatusNo  = "No"
-)
-
-// Package name validation: follows Vertica unquoted identifier rule
-//
-// Valid examples:
-//   - "ComplexTypes"
-//   - "package123"
-//
-// Invalid examples:
-//   - "123package"    (starts with digit)
-//   - "package-name"  (contains hyphen)
-//   - "package name"  (contains space)
-var packageNameRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_$]{0,127}$`)
 
 type CmdListPackages struct {
 	CmdBase
@@ -119,16 +102,9 @@ func (c *CmdListPackages) Parse(inputArgv []string, logger vlog.Printer) error {
 
 // all validations of the arguments should go in here
 func (c *CmdListPackages) validateParse() error {
-	if c.listPkgOpts.PackageFilter != "" {
-		filter := c.listPkgOpts.PackageFilter
-
-		// Allow special keywords
-		if filter != "all" && filter != "default" {
-			// Validate package name follows Vertica identifier rules
-			if !packageNameRegex.MatchString(filter) {
-				return fmt.Errorf("invalid package filter: %s", c.listPkgOpts.PackageFilter)
-			}
-		}
+	// validate package filter
+	if err := util.ValidatePackageFilter(c.listPkgOpts.PackageFilter); err != nil {
+		return err
 	}
 
 	if !c.usePassword() {

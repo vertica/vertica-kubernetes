@@ -18,28 +18,25 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
 
-type httpsListPackagesOp struct {
+type httpsUninstallPackagesOp struct {
 	opBase
 	opHTTPSBase
 	packageFilter string
-	checkStatus   bool
-	status        ListPackageStatus // Filled in once the op completes
+	status        UninstallPackagesStatus // Filled in once the op completes
 }
 
-func makeHTTPSListPackagesOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, packageFilter string, checkStatus bool,
-) (httpsListPackagesOp, error) {
-	op := httpsListPackagesOp{}
-	op.name = "HTTPSListPackagesOp"
-	op.description = "List packages"
+func makeHTTPSUninstallPackagesOp(hosts []string, useHTTPPassword bool,
+	userName string, httpsPassword *string, packageFilter string,
+) (httpsUninstallPackagesOp, error) {
+	op := httpsUninstallPackagesOp{}
+	op.name = "HTTPSUninstallPackagesOp"
+	op.description = "Uninstall packages"
 	op.hosts = hosts
 	op.packageFilter = packageFilter
-	op.checkStatus = checkStatus
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -51,22 +48,21 @@ func makeHTTPSListPackagesOp(hosts []string, useHTTPPassword bool,
 	return op, nil
 }
 
-func (op *httpsListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
+func (op *httpsUninstallPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
-		httpRequest.Method = GetMethod
+		httpRequest.Method = DeleteMethod
 		httpRequest.buildHTTPSEndpoint("packages")
 		if op.useHTTPPassword {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
-		httpRequest.QueryParams = map[string]string{
-			"check-status": strconv.FormatBool(op.checkStatus),
-		}
+
 		// Add filter parameter only if specified and not "all"
 		// API defaults to "all" when filter is omitted
 		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
-			httpRequest.QueryParams["filter"] = op.packageFilter
+			httpRequest.QueryParams = make(map[string]string)
+			httpRequest.QueryParams["packages"] = op.packageFilter
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
@@ -74,13 +70,13 @@ func (op *httpsListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 	return nil
 }
 
-func (op *httpsListPackagesOp) prepare(execContext *opEngineExecContext) error {
+func (op *httpsUninstallPackagesOp) prepare(execContext *opEngineExecContext) error {
 	// If no hosts passed in, we will find the hosts from execute-context
 	if len(op.hosts) == 0 {
 		if len(execContext.upHosts) == 0 {
 			return fmt.Errorf(`[%s] Cannot find any up hosts in OpEngineExecContext`, op.name)
 		}
-		// use first up host to execute https post request
+		// use first up host to execute https delete request
 		op.hosts = []string{execContext.upHosts[0]}
 	}
 	execContext.dispatcher.setup(op.hosts)
@@ -88,7 +84,7 @@ func (op *httpsListPackagesOp) prepare(execContext *opEngineExecContext) error {
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
-func (op *httpsListPackagesOp) execute(execContext *opEngineExecContext) error {
+func (op *httpsUninstallPackagesOp) execute(execContext *opEngineExecContext) error {
 	if err := op.runExecute(execContext); err != nil {
 		return err
 	}
@@ -96,49 +92,47 @@ func (op *httpsListPackagesOp) execute(execContext *opEngineExecContext) error {
 	return op.processResult(execContext)
 }
 
-func (op *httpsListPackagesOp) finalize(_ *opEngineExecContext) error {
+func (op *httpsUninstallPackagesOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
 /*
-The response from the GET /packages endpoint will look like this:
+The response from the DELETE /v1/packages endpoint will look like this:
 
 {
   'packages': [
     {
       'package_name': 'ComplexTypes',
-      'description': 'Complex data types library',
-      'install_status': 'Yes',
-	  'auto_install': true
+      'install_status': 'Uninstalled successfully',
     },
     {
-      'package_name': 'DelimitedExport',
-      'description': 'Export data in delimited formats',
-      'install_status': 'No',
-      'auto_install': false
+      'package_name': 'pgcompat',
+      'install_status': 'Skipped - not currently installed',
+    },
+	{
+      'package_name': 'MachineLearning',
+      'install_status': 'Failed - uninstall script error: VIAssert(pt) failed,
     },
     ...
   ],
 }
 */
 
-// ListPackageStatus provides status for each package listed.
-type ListPackageStatus struct {
-	Packages []PackageDetail `json:"packages"`
+// UninstallPackagesStatus provides status for each package.
+type UninstallPackagesStatus struct {
+	Packages []UninstallPackageDetail `json:"packages"`
 }
 
-// PackageDetail has the details for a single package.
-type PackageDetail struct {
+// UninstallPackageDetail has the details for a single package.
+type UninstallPackageDetail struct {
 	PackageName   string `json:"package_name"`
-	Description   string `json:"description"`
-	InstallStatus string `json:"install_status"` // "Yes", "No", or unknown (offline mode)
-	AutoInstall   bool   `json:"auto_install"`
+	InstallStatus string `json:"install_status"`
 }
 
-func (op *httpsListPackagesOp) processResult(_ *opEngineExecContext) error {
+func (op *httpsUninstallPackagesOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 
-	// List packages is cluster-wide - return after first successful response
+	// Uninstall packages is cluster-wide - return after first successful response
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
