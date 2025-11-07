@@ -69,9 +69,8 @@ const (
 type TLSConfigType string
 
 const (
-	ServerTLSKeyPrefix    TLSConfigType = "server"
-	HTTPSTLSKeyPrefix     TLSConfigType = "https"
-	InterNodeTLSKeyPrefix TLSConfigType = "Internode"
+	ServerTLSKeyPrefix TLSConfigType = "server"
+	HTTPSTLSKeyPrefix  TLSConfigType = "https"
 )
 
 type TLSConfig struct {
