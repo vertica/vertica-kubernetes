@@ -16,7 +16,9 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -68,7 +70,7 @@ func (options *VStopDatabaseOptions) validateEonOptions(log vlog.Printer) error 
 				" Connection draining is only available in eon mode.")
 		}
 		options.DrainSeconds = nil
-	} else if options.DrainSeconds == nil {
+	} else if options.DrainSeconds == nil && !options.ForceKill && !options.CheckUserConn {
 		// if db is eon db and we do not see --drain-seconds, we will set it to 60 seconds (default value)
 		options.DrainSeconds = new(int)
 		*options.DrainSeconds = util.DefaultDrainSeconds
@@ -159,7 +161,9 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 
 	options.setAllHosts(&vdb)
 
-	instructions, err := vcc.produceStopDBInstructions(options)
+	activeSessions := []nmaActiveSessionDetails{}
+
+	instructions, err := vcc.produceStopDBInstructions(options, &activeSessions)
 	if err != nil {
 		return fmt.Errorf("fail to production instructions: %w", err)
 	}
@@ -169,6 +173,12 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.runInSandbox(vcc.GetLog(), &vdb, options.SandboxName)
 	if runError != nil {
+		if errors.Is(runError, ErrActiveSessions) {
+			activeSessionDetails := formatActiveSessionDetails(activeSessions)
+			return fmt.Errorf("fail to stop database: Cannot shutdown while users are connected\n\n%s",
+				activeSessionDetails)
+		}
+
 		return fmt.Errorf("fail to stop database: %w", runError)
 	}
 
@@ -184,7 +194,8 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 //   - Sync catalog through the first up node
 //   - Stop db through the first up node
 //   - Check there is not any database running
-func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOptions) ([]clusterOp, error) {
+func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOptions,
+	activeSessions *[]nmaActiveSessionDetails) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
@@ -195,6 +206,16 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 		if err != nil {
 			return instructions, err
 		}
+	}
+
+	if options.CheckUserConn {
+		nmaCheckActiveSessionOp, err := makeNMACheckActiveSessionsOp(options.Hosts,
+			options.DBName, usePassword, options.UserName, options.Password,
+			activeSessions, true /* assertNoActiveSessions*/)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaCheckActiveSessionOp)
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
@@ -214,7 +235,7 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	}
 
 	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, options.UserName, options.Password, options.DrainSeconds,
-		options.SandboxName, options.MainCluster, options.IsEon)
+		options.SandboxName, options.MainCluster, options.IsEon, options.ForceKill)
 	if err != nil {
 		return instructions, err
 	}
@@ -270,4 +291,40 @@ func (options *VStopDatabaseOptions) setAllHosts(vdb *VCoordinationDatabase) {
 	if len(allHosts) > 0 {
 		options.Hosts = allHosts
 	}
+}
+
+func formatActiveSessionDetails(activeSessions []nmaActiveSessionDetails) string {
+	var maxSessionIDWidth, maxUsernameWidth, maxHostIPWidth = 10, 15, 8
+
+	// Determine width for columns
+	for _, session := range activeSessions {
+		maxSessionIDWidth = max(maxSessionIDWidth, len(session.SessionID))
+		maxUsernameWidth = max(maxUsernameWidth, len(session.Username))
+		maxHostIPWidth = max(maxHostIPWidth, len(session.ClientHostname))
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Active session details:\n")
+
+	// Create row format string - will end up like "|%10s|%15s|%8s|\n"
+	rowFormatString := fmt.Sprintf("|%%%ds|%%%ds|%%%ds|\n",
+		maxSessionIDWidth,
+		maxUsernameWidth,
+		maxHostIPWidth)
+
+	// Write table header
+	sb.WriteString(fmt.Sprintf(rowFormatString, "Session ID", "Username", "Host IP"))
+	sb.WriteString(fmt.Sprintf(rowFormatString,
+		strings.Repeat("-", maxSessionIDWidth),
+		strings.Repeat("-", maxUsernameWidth),
+		strings.Repeat("-", maxHostIPWidth)))
+
+	// Write table body
+	for _, session := range activeSessions {
+		sb.WriteString(fmt.Sprintf(rowFormatString,
+			session.SessionID,
+			session.Username,
+			session.ClientHostname))
+	}
+	return sb.String()
 }

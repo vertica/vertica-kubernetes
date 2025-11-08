@@ -51,9 +51,26 @@ func makeCmdStopDB() *cobra.Command {
 		`Stops a database or sandbox.
 
 Examples:
+  # Stop a database with default drain timeout (60 seconds)
+  vcluster stop_db
+
   # Stop a database with config file using password authentication
+  # with default drain seconds (60)
   vcluster stop_db --password "PASSWORD" \
     --config /opt/vertica/config/vertica_cluster.yaml
+
+  # Stop a database only if no users are connected
+  vcluster stop_db --if-no-users --password "PASSWORD"
+
+  # Stop a database
+  # Close all active sessions before stopping the database
+  vcluster stop_db --force-kill
+
+  # Stop a database with config file using password authentication
+  # Close all active sessions before stopping the database
+  vcluster stop_db --password "PASSWORD" \
+    --config /opt/vertica/config/vertica_cluster.yaml
+	--force-kill --drain-seconds=0
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, eonModeFlag, configFlag, passwordFlag},
 	)
@@ -61,9 +78,8 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// check if hidden flags can be implemented/removed in VER-92259
-	// hidden flags
-	newCmd.setHiddenFlags(cmd)
+	// Only one of these can be used
+	cmd.MarkFlagsMutuallyExclusive("drain-seconds", "force-kill", "if-no-users")
 
 	return cmd
 }
@@ -95,24 +111,18 @@ func (c *CmdStopDB) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Whether to sync the catalog before stopping the database",
 	)
-}
-
-// setHiddenFlags will set the hidden flags the command has.
-// These hidden flags will not be shown in help and usage of the command, and they will be used internally.
-func (c *CmdStopDB) setHiddenFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(
-		&c.stopDBOptions.CheckUserConn,
-		"if-no-users",
-		false,
-		"",
-	)
 	cmd.Flags().BoolVar(
 		&c.stopDBOptions.ForceKill,
 		"force-kill",
 		false,
-		"",
+		"Close all active sessions before stopping the database",
 	)
-	hideLocalFlags(cmd, []string{"if-no-users", "force-kill"})
+	cmd.Flags().BoolVar(
+		&c.stopDBOptions.CheckUserConn,
+		"if-no-users",
+		false,
+		"Only shutdown if no users are connected. If any users are connected, exit with an error",
+	)
 }
 
 func (c *CmdStopDB) Parse(inputArgv []string, logger vlog.Printer) error {
