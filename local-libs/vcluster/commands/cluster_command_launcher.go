@@ -268,6 +268,7 @@ const (
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
 	clusterHealth           = "cluster_health"
+	unInstallPkgSubCmd      = "uninstall_packages"
 	listPkgSubCmd           = "list_packages"
 )
 
@@ -656,6 +657,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
 		makeCmdClusterHealth(),
+		makeCmdUninstallPackages(),
 		makeCmdListPackages(),
 	}
 }

@@ -54,6 +54,7 @@ const (
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd
+	UninstallPackagesCmd
 	ListPackagesCmd
 	GetRedirectStateCmd
 	SetRedirectStateCmd
@@ -109,6 +110,7 @@ var cmdStringMap = map[CmdType]string{
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 	SetTLSConfigCmd:              "set_tls_config",
+	UninstallPackagesCmd:         "uninstall_packages",
 	ListPackagesCmd:              "list_packages",
 	GetRedirectStateCmd:          "get_redirect_state",
 	SetRedirectStateCmd:          "set_redirect_state",
