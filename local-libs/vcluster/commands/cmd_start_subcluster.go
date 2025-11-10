@@ -84,7 +84,7 @@ func (c *CmdStartSubcluster) setLocalFlags(cmd *cobra.Command) {
 		&c.startScOptions.StatePollingTimeout,
 		"timeout",
 		util.DefaultTimeoutSeconds,
-		"The time (in seconds) to wait for nodes to start up.",
+		"The time (in seconds) to wait for nodes to start up (default: 300).",
 	)
 	cmd.Flags().StringSliceVar(
 		&c.rawNewHostList,

@@ -59,6 +59,7 @@ const (
 	SetRedirectStateCmd
 	RestartNMACmd
 	PollConnectionDrainingCmd
+	UpgradeVerticaCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -114,6 +115,7 @@ var cmdStringMap = map[CmdType]string{
 	SetRedirectStateCmd:          "set_redirect_state",
 	RestartNMACmd:                "restart_nma",
 	PollConnectionDrainingCmd:    "poll_connection_draining",
+	UpgradeVerticaCmd:            "upgrade_vertica",
 }
 
 func (cmd CmdType) CmdString() string {
