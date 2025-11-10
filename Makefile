@@ -408,6 +408,10 @@ endif
 .PHONY: init-e2e-env
 init-e2e-env: install-kuttl-plugin install-stern-plugin kustomize ## Download necessary tools to run the integration tests
 
+.PHONY: cleanup-e2e-env
+cleanup-e2e-env: ## remove leftover e2e resouces due to test failure.
+	scripts/cleanup-e2e-env.sh
+
 .PHONY: run-int-tests
 run-int-tests: init-e2e-env vdb-gen cert-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
@@ -794,6 +798,10 @@ deploy-keda: ## Deploy keda operator for autoscaling
 .PHONY: undeploy-keda
 undeploy-keda: ## Undeploy keda operator previously deployed
 	helm uninstall keda -n keda
+
+.PHONY: cleanup-prometheus-leftover
+cleanup-prometheus-leftover: ## remove leftover Prometheus resouces due to e2e test failure.
+	scripts/cleanup-prometheus.sh $(PROMETHEUS_NAMESPACE)
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
