@@ -1349,6 +1349,16 @@ func (p *PodFacts) AreAllPodsRunningAndZeroInstalled() bool {
 	return true
 }
 
+// AreAllPodsRunning returns true if all of the pods are running
+func (p *PodFacts) AreAllPodsRunning() bool {
+	for _, v := range p.Detail {
+		if (!v.exists || !v.isPodRunning) && v.managedByParent {
+			return false
+		}
+	}
+	return true
+}
+
 // countPods is a generic function to do a count across the pod facts
 func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 	count := 0
