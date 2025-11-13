@@ -54,12 +54,14 @@ const (
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd
+	ReturnEpochCmd
 	UninstallPackagesCmd
 	ListPackagesCmd
 	GetRedirectStateCmd
 	SetRedirectStateCmd
 	RestartNMACmd
 	PollConnectionDrainingCmd
+	UpgradeVerticaCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -110,12 +112,14 @@ var cmdStringMap = map[CmdType]string{
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 	SetTLSConfigCmd:              "set_tls_config",
+	ReturnEpochCmd:               "return_epoch",
 	UninstallPackagesCmd:         "uninstall_packages",
 	ListPackagesCmd:              "list_packages",
 	GetRedirectStateCmd:          "get_redirect_state",
 	SetRedirectStateCmd:          "set_redirect_state",
 	RestartNMACmd:                "restart_nma",
 	PollConnectionDrainingCmd:    "poll_connection_draining",
+	UpgradeVerticaCmd:            "upgrade_vertica",
 }
 
 func (cmd CmdType) CmdString() string {
