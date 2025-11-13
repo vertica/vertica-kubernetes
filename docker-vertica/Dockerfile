@@ -143,6 +143,8 @@ RUN set -x \
   fi \
   # delete old host keys
   && rm -rf /etc/ssh/ssh_host* \
+  # Adjust /etc/shadow permissions so su root works on all Linux distros
+  && chmod 640 /etc/shadow \
   # Permit ssh connections
   && rm -rf /run/nologin \
   # Create a symlink to the rsync for use with vbr. This works around a problem

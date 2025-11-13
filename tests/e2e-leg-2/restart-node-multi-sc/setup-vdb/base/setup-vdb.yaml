@@ -19,6 +19,7 @@ metadata:
     vertica.com/include-uid-in-path: "true"
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "4" 
+    vertica.com/allow-ce-license: "true"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -28,7 +29,7 @@ spec:
   communal: {}
   local:
     depotVolume: EmptyDir
-    requestSize: 100Mi
+    requestSize: 200Mi
     catalogPath: /vertica/catalog
   dbName: vertdb
   shardCount: 16

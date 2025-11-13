@@ -33,14 +33,14 @@ status:
   subclusters:
     - addedToDBCount: 3
       name: pri1
-    - addedToDBCount: 0
+    - addedToDBCount: 3
       upNodeCount: 0
       shutdown: true
       name: sec1
     - addedToDBCount: 1
       upNodeCount: 1
       name: sec2
-    - addedToDBCount: 0
+    - addedToDBCount: 1
       upNodeCount: 0
       shutdown: true
       name: sec3

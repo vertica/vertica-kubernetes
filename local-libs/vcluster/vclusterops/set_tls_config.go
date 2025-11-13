@@ -27,7 +27,7 @@ type VSetTLSConfigOptions struct {
 	ServerTLSConfig TLSConfig
 	// HTTPS TLS Configuration
 	HTTPSTLSConfig TLSConfig
-	// Inter Node TLS configuraton
+	// Inter Node TLS configuration
 	InterNodeTLSConfig TLSConfig
 }
 
@@ -67,9 +67,11 @@ func (options *VSetTLSConfigOptions) validateTLSConfig(logger vlog.Printer) erro
 		return fmt.Errorf("missing TLS configuration: specify settings for at least one of server, HTTPS or InterNode")
 	}
 
-	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth || options.ServerTLSConfig.GrantAuth &&
-		options.InterNodeTLSConfig.GrantAuth || options.InterNodeTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
-		return fmt.Errorf("only one of server, https and internode TLS configurations can set GrantAuth to true")
+	if options.ServerTLSConfig.GrantAuth && options.HTTPSTLSConfig.GrantAuth {
+		return fmt.Errorf("only one of server, and https TLS configurations can set GrantAuth to true")
+	}
+	if options.InterNodeTLSConfig.GrantAuth {
+		return fmt.Errorf("internode TLS configurations cannot set GrantAuth to true")
 	}
 
 	err = options.ServerTLSConfig.validate(logger)

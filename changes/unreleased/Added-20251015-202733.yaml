@@ -1,0 +1,5 @@
+kind: Added
+body: Add planned db shutdown
+time: 2025-10-15T20:27:33.530104408+02:00
+custom:
+    Issue: "1439"

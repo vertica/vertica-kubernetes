@@ -45,6 +45,14 @@ var _ = Describe("onlineupgrade_reconciler", func() {
 	ctx := context.Background()
 	const NewImageName = "different-image"
 
+	BeforeEach(func() {
+		createSecret(ctx, map[string][]byte{"license.dat": []byte("dummy")})
+	})
+
+	AfterEach(func() {
+		deleteTestSecret(ctx)
+	})
+
 	It("should correctly assign replica groups for both subcluster types", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{

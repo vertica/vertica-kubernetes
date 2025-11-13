@@ -57,10 +57,13 @@ while getopts "hv" opt; do
 done
 
 TEMPLATE_DIR=$REPO_DIR/tests/e2e-operator-upgrade-template/
+TEMPLATE_DIR_V1=$REPO_DIR/tests/e2e-operator-upgrade-v1-template/
 OVERLAY_DIR=$REPO_DIR/tests/e2e-operator-upgrade-overlays/
-logInfo "Refresh testcases in $OVERLAY_DIR"
+OVERLAY_DIR_V1=$REPO_DIR/tests/e2e-operator-upgrade-v1-overlays/
+logInfo "Refresh testcases in $OVERLAY_DIR and $OVERLAY_DIR_V1"
 logInfo "Removing old overlays"
 git clean -d --force -x $OVERLAY_DIR
+GLOBIGNORE=".gitkeep" rm -rf $OVERLAY_DIR_V1/*
 
 logInfo "Create new overlays"
 cd $TEMPLATE_DIR
@@ -73,6 +76,22 @@ do
     fi
     logInfo "Refresh testcase $tdir"
     OVERLAY_TDIR=$OVERLAY_DIR/$tdir
+    mkdir $OVERLAY_TDIR
+    cp -r template/* $OVERLAY_TDIR
+    cp -r $tdir/* $OVERLAY_TDIR
+done
+
+logInfo "Create new overlays for v1"
+cd $TEMPLATE_DIR_V1
+for tdir in *
+do
+    # Skip if not a directory or the special template directory.
+    if ! test -d $tdir || [ "$tdir" == "template" ]
+    then
+        continue
+    fi
+    logInfo "Refresh v1 testcase $tdir"
+    OVERLAY_TDIR=$OVERLAY_DIR_V1/$tdir
     mkdir $OVERLAY_TDIR
     cp -r template/* $OVERLAY_TDIR
     cp -r $tdir/* $OVERLAY_TDIR

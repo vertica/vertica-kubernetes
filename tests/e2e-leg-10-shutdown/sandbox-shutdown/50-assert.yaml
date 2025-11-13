@@ -56,7 +56,7 @@ status:
     - addedToDBCount: 3
       name: pri1
       type: primary
-    - addedToDBCount: 0
+    - addedToDBCount: 3
       upNodeCount: 0
       shutdown: true
       name: sec1
@@ -65,7 +65,7 @@ status:
       upNodeCount: 1
       name: sec2
       type: sandboxprimary
-    - addedToDBCount: 0
+    - addedToDBCount: 1
       upNodeCount: 0
       shutdown: true
       name: sec3

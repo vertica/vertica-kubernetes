@@ -1454,17 +1454,6 @@ func (p *PodFacts) GetUpNodeAndNotReadOnlyCount() int {
 	})
 }
 
-// GetShutdownCount returns the number of pods
-// that must stay down.
-func (p *PodFacts) GetShutdownCount() int {
-	return p.countPods(func(v *PodFact) int {
-		if v.shutdown {
-			return 1
-		}
-		return 0
-	})
-}
-
 // HasShutdownQuorum returns true if more than half of primray nodes are shutdown
 func (p *PodFacts) HasShutdownQuorum() bool {
 	primaryNodeCount := p.countPods(func(v *PodFact) int {
@@ -1677,18 +1666,19 @@ func (p *PodFacts) FindPodNamesInSubcluster(scName string) []types.NamespacedNam
 	return podNames
 }
 
-// RemoveStartupFileInSandboxPods removes the startup file from all
-// the sandbox's pods, to prevent automatic restart after shutdown.
-func (p *PodFacts) RemoveStartupFileInSandboxPods(ctx context.Context, vdb *vapi.VerticaDB, successMsg string) error {
-	if p.SandboxName == vapi.MainCluster {
+// RemoveStartupFileInPods removes the startup file from all the pods in a sandbox/main cluster,
+// to prevent automatic restart after shutdown.
+func (p *PodFacts) RemoveStartupFileInPods(ctx context.Context, vdb *vapi.VerticaDB, successMsg string) error {
+	if p.SandboxName == vapi.MainCluster && !vdb.Spec.Shutdown {
 		return nil
 	}
-	sb := vdb.GetSandbox(p.SandboxName)
-	if sb == nil {
+	scs := vdb.GetSubclustersInSandbox(p.SandboxName)
+	if len(scs) == 0 {
 		return errors.New("sandbox not found")
 	}
-	for _, sc := range sb.Subclusters {
-		err := p.RemoveStartupFileInSubclusterPods(ctx, sc.Name, successMsg)
+
+	for _, sc := range scs {
+		err := p.RemoveStartupFileInSubclusterPods(ctx, sc, successMsg)
 		if err != nil {
 			return err
 		}

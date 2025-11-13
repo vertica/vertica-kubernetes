@@ -50,12 +50,13 @@ func MakeAutoCertRotateReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// No-op if auto-rotate is not enabled at all
-	if !r.Vdb.IsDBInitialized() || !r.Vdb.IsAutoCertRotationEnabled(vapi.ClientServerTLSConfigName) &&
-		!r.Vdb.IsAutoCertRotationEnabled(vapi.HTTPSNMATLSConfigName) &&
-		!r.Vdb.IsAutoCertRotationEnabled(vapi.InterNodeTLSConfigName) {
+	if !r.Vdb.IsDBInitialized() ||
+		r.Vdb.IsMainClusterStopped() ||
+		!r.Vdb.IsAnyAutoCertRotationEnabled() {
 		return ctrl.Result{}, nil
 	}
-	// Check HTTPS/NMA auto-rotate
+
+	// Check HTTPS auto-rotate
 	httpsRes, err := r.autoRotateByTLSConfig(ctx, vapi.HTTPSNMATLSConfigName)
 	if err != nil {
 		return httpsRes, err
@@ -66,11 +67,13 @@ func (r *AutoCertRotateReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	if err != nil {
 		return clientServerRes, err
 	}
+
 	// Check Inter Node auto-rotate
 	interNodeRes, err := r.autoRotateByTLSConfig(ctx, vapi.InterNodeTLSConfigName)
 	if err != nil {
 		return interNodeRes, err
 	}
+
 	// Compare results; requeue for shortest time
 	mergedRes := r.mergeResults(httpsRes, clientServerRes)
 

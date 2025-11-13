@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -57,6 +58,7 @@ type CacheManager interface {
 	SetPassword(namespace, name, passwordSecret, passwordValue string)
 	GetPassword(namespace, name, passwordSecret string) (string, bool)
 	DeletePassword(namespace, name, passwordSecret string)
+	GetTimestampCacheForVdb(string, string) *ItemCache[metav1.Time]
 }
 
 // These are the functions that can set/read a bool/secert
@@ -130,11 +132,12 @@ func (c *ItemCache[T]) Delete(key string) {
 }
 
 type VdbCacheStruct struct {
-	namespace     string // save namespace so it is not required to be passed
-	fetcher       *cloud.SecretFetcher
-	enabled       bool
-	certCache     *ItemCache[map[string][]byte]
-	passwordCache *ItemCache[string] // Cache for passwords, keyed by passwordSecret
+	namespace      string // save namespace so it is not required to be passed
+	fetcher        *cloud.SecretFetcher
+	enabled        bool
+	certCache      *ItemCache[map[string][]byte]
+	passwordCache  *ItemCache[string] // Cache for passwords, keyed by passwordSecret
+	timestampCache *ItemCache[metav1.Time]
 }
 
 var log = ctrl.Log.WithName("vdb_cache")
@@ -203,6 +206,7 @@ func makeVdbCache(namespace string, ttl int, fetcher *cloud.SecretFetcher, enabl
 	singleContext.enabled = enabled
 	singleContext.certCache = NewItemCache[map[string][]byte](time.Duration(ttl)*time.Second, enabled)
 	singleContext.passwordCache = NewItemCache[string](time.Duration(ttl)*time.Second, enabled)
+	singleContext.timestampCache = NewItemCache[metav1.Time](time.Duration(24*365)*time.Hour, true /* always cached*/)
 	return singleContext
 }
 
@@ -295,4 +299,9 @@ func (c *CacheManagerStruct) GetPassword(namespace, name, passwordSecret string)
 func (c *CacheManagerStruct) DeletePassword(namespace, name, passwordSecret string) {
 	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
 	vdbCache.passwordCache.Delete(passwordSecret)
+}
+
+func (c *CacheManagerStruct) GetTimestampCacheForVdb(namespace, name string) *ItemCache[metav1.Time] {
+	vdbCache := c.GetCertCacheForVdb(namespace, name).(*VdbCacheStruct)
+	return vdbCache.timestampCache
 }

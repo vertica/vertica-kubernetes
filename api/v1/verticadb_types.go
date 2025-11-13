@@ -381,6 +381,11 @@ type VerticaDBSpec struct {
 	// A list of environment variables to set in all containers in vertica pods. They will be set in a container through the
 	// envFrom field. All the key-value pairs in the configmap/secret are added to the environment as-is.
 	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Controls a planned shutdown of the database.
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -1107,6 +1112,10 @@ type VerticaDBStatus struct {
 	// The names of secrets that have been observed by the operator.
 	// This is used to trigger a rolling restart of the pods when these resources change.
 	ObservedSecrets []string `json:"observedSecrets,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// the license validation and installation information
+	LicenseStatus *LicenseStatus `json:"licenseStatus,omitempty"`
 }
 
 const (
@@ -1115,6 +1124,33 @@ const (
 	ClientServerTLSConfigName = "clientServer" // #nosec G101
 	InterNodeTLSConfigName    = "interNode"    // #nosec G101
 )
+
+type LicenseStatus struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// The name of a secret that contains the contents of license files. The
+	// secret must be in the same namespace as the VDB. Each of the keys in the
+	// secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
+	// is set prior to creating a database, it will include one of the licenses
+	// from the secret -- if there are multiple licenses it will pick one by
+	// selecting the first one alphabetically.  The user is responsible for
+	// installing any additional licenses if the license was added to the
+	// secret after DB creation.
+	LicenseSecret string `json:"licenseSecret,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Info for each validated licenses
+	Licenses []LicenseInfo `json:"licenses,omitempty"`
+}
+
+type LicenseInfo struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// the license key used in the license secret
+	Key string `json:"license_key"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// populated after the license is validated
+	Valid bool `json:"valid"`
+}
 
 type TLSConfigStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
@@ -1217,6 +1253,8 @@ const (
 	TLSCertRollbackNeeded = "TLSCertRollbackNeeded"
 	// TLSCertRollbackInProgress indicates that user has triggered TLS rollback
 	TLSCertRollbackInProgress = "TLSCertRollbackInProgress"
+	// MainClusterPodsTerminated indicates that all main cluster pods have been terminated
+	MainClusterPodsTerminated = "MainClusterPodsTerminated"
 )
 
 const (

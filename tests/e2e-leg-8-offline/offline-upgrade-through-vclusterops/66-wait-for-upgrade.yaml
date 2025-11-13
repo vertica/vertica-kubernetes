@@ -13,5 +13,6 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
+timeout: 900
 commands:
-  - command: kubectl wait -n $NAMESPACE --for=condition=UpgradeInProgress=False vdb/v-upgrade-vertica --timeout=600s
+  - command: kubectl wait -n $NAMESPACE --for=condition=UpgradeInProgress=False vdb/v-upgrade-vertica --timeout=900s

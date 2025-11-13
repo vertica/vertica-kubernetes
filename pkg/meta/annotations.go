@@ -349,6 +349,13 @@ const (
 	// attempted, should issue an error indicating so.
 	ScrutinizeLogAgeHours = "vertica.com/scrutinize-log-age-hours"
 
+	ScrutinizeExcludeActiveQueriesAnnotation        = "vertica.com/scrutinize-exclude-active-queries"
+	ScrutinizeExcludeContainersAnnotation           = "vertica.com/scrutinize-exclude-containers"
+	ScrutinizeIncludeExternalTableDetailsAnnotation = "vertica.com/scrutinize-include-external-table-details"
+	ScrutinizeIncludeRosAnnotation                  = "vertica.com/scrutinize-include-ros"
+	ScrutinizeIncludeUDXDetailsAnnotation           = "vertica.com/scrutinize-include-udx-details"
+	ScrutinizeSkipCollectLibrariesAnnotation        = "vertica.com/scrutinize-skip-collect-libraries"
+
 	// This is applied to the statefulset to identify what replica group it is
 	// in. Replica groups are assigned during online upgrade. Valid values
 	// are defined under the annotation name.
@@ -431,11 +438,11 @@ const (
 
 	// This indicates that the subcluster shutdown is controlled by the sandbox
 	// through the sandbox's shutdown field.
-	ShutdownDrivenBySandbox = "vertica.com/shutdown-driven-by-sandbox"
+	ShutdownDrivenBySandboxAnnotation = "vertica.com/shutdown-driven-by-sandbox"
 
-	// This indicates that the subcluster shutdown is controlled by the subcluster's
-	// shutdown field.
-	ShutdownDrivenBySubcluster = "vertica.com/shutdown-driven-by-subcluster"
+	// This indicates that the subcluster shutdown is controlled by the main
+	// cluster through the vdb's shutdown field.
+	ShutdownDrivenByMainAnnotation = "vertica.com/shutdown-driven-by-main"
 
 	// The timeout, in seconds, to use when the operator is polling the status of an ongoing
 	// asynchronous replication operation. If omitted, we use the default timeout of 60 minutes.
@@ -488,6 +495,10 @@ const (
 	// This is used to override the default behavior of setting tls to true.
 	// For testing purposes only.
 	DefaultTLSEnabledIsFalseAnnotation = "vertica.com/default-tls-enabled-is-false"
+	// This is an internal annotation. It is used to store the license key used to create a new db
+	ValidLicenseKeyAnnotation = "vertica.com/valid-license-key"
+
+	AllowCELicenseAnnotation = "vertica.com/allow-ce-license"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -799,6 +810,30 @@ func GetScrutinizeLogAgeHours(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, ScrutinizeLogAgeHours, 0 /* default value */)
 }
 
+func GetScrutinizeExcludeActiveQueries(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeExcludeActiveQueriesAnnotation, false /* default value */)
+}
+
+func GetScrutinizeExcludeContainers(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeExcludeContainersAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeExternalTableDetails(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeExternalTableDetailsAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeRos(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeRosAnnotation, false /* default value */)
+}
+
+func GetScrutinizeIncludeUDXDetails(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeIncludeUDXDetailsAnnotation, false /* default value */)
+}
+
+func GetScrutinizeSkipCollectLibraries(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ScrutinizeSkipCollectLibrariesAnnotation, false /* default value */)
+}
+
 // GetOnlineUpgradeSandbox returns the name of the sandbox used for online upgrade.
 func GetOnlineUpgradeSandbox(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, OnlineUpgradeSandboxAnnotation, "")
@@ -852,14 +887,12 @@ func GetVPDepNameOverride(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ProxyDeploymentNameAnnotation, "")
 }
 
-func GetShutdownDrivenBySandbox(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandbox, false)
+func IsShutdownDrivenBySandbox(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenBySandboxAnnotation, false)
 }
 
-// GetShutdownDrivenBySubcluster returns the bool value if the operator
-// will shutdown the subcluster and not try to restart it.
-func GetShutdownDrivenBySubcluster(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, ShutdownDrivenBySubcluster, false)
+func IsShutdownDrivenByMain(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, ShutdownDrivenByMainAnnotation, false)
 }
 
 // GetExtraLocalPaths returns the comma separated list of extra local paths
@@ -919,6 +952,15 @@ func IsHTTPSTLSSetInOfflineUpgrade(annotations map[string]string) bool {
 // GetHTTPSPollingMaxRetries returns the max number of retries to use for HTTPS polling during HTTPS cert rotation (default 0).
 func GetHTTPSPollingMaxRetries(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, HTTPSPollingMaxRetriesAnnotation, 0)
+}
+
+// GetValidLicenseKey returns a valid license key
+func GetValidLicenseKey(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ValidLicenseKeyAnnotation, "")
+}
+
+func GetAllowCELicense(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, AllowCELicenseAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

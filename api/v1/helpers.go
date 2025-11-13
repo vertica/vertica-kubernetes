@@ -143,7 +143,7 @@ func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
 func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	replicas := int32(1)
-	return &VerticaDB{
+	vdb := &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       VerticaDBKind,
@@ -153,8 +153,9 @@ func MakeVDB() *VerticaDB {
 			Namespace: nm.Namespace,
 			UID:       "abcdef-ghi",
 			Annotations: map[string]string{
-				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
-				vmeta.VersionAnnotation:     "v23.4.0",
+				vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationFalse,
+				vmeta.VersionAnnotation:         "v23.4.0",
+				vmeta.ValidLicenseKeyAnnotation: "license.dat",
 			},
 		},
 		Spec: VerticaDBSpec{
@@ -163,6 +164,7 @@ func MakeVDB() *VerticaDB {
 			Annotations:        make(map[string]string),
 			Image:              "vertica-k8s:latest",
 			InitPolicy:         CommunalInitPolicyCreate,
+			LicenseSecret:      "test-license-secret",
 			Communal: CommunalStorage{
 				Path:             "s3://nimbusdb/cchen",
 				Endpoint:         "http://minio",
@@ -198,6 +200,7 @@ func MakeVDB() *VerticaDB {
 			ClientServerTLS:   &TLSConfigSpec{Enabled: BoolPtr(true)},
 		},
 	}
+	return vdb
 }
 
 func BoolPtr(boolval bool) *bool {
@@ -652,8 +655,8 @@ func (s *Subcluster) GetStsSize(vdb *VerticaDB) int32 {
 		return s.Size
 	}
 	scStatusMap := vdb.GenSubclusterStatusMap()
-	ss := scStatusMap[s.Name]
-	if ss != nil && ss.Shutdown {
+	sc := scStatusMap[s.Name]
+	if sc != nil && sc.Shutdown {
 		return 0
 	}
 	return s.Size
@@ -797,6 +800,14 @@ func (v *VerticaDB) IsAutoCertRotationEnabled(tlsConfig string) bool {
 	specSet := config != nil && config.AutoRotate != nil && len(config.AutoRotate.Secrets) > 0
 	statusSet := len(v.GetAutoRotateSecrets(tlsConfig)) > 0
 	return specSet || statusSet
+}
+
+// IsAnyAutoCertRotationEnabled checks if automatic cert rotation is enabled for
+// any tlsconfig (clientServer or httpsNMA or interNode)
+func (v *VerticaDB) IsAnyAutoCertRotationEnabled() bool {
+	return v.IsAutoCertRotationEnabled(ClientServerTLSConfigName) ||
+		v.IsAutoCertRotationEnabled(HTTPSNMATLSConfigName) ||
+		v.IsAutoCertRotationEnabled(InterNodeTLSConfigName)
 }
 
 // GetAutoRotateSecrets gets the list of auto-rotate secrets from status
@@ -1897,6 +1908,32 @@ func (v *VerticaDB) UseVClusterOpsDeployment() bool {
 
 	// when deploymentMethod is empty in status, check annotation
 	return vmeta.UseVClusterOps(v.Annotations)
+}
+
+// IsMainClusterStopped returns true if the main cluster is shutdown
+// or is marked for shutdown.
+func (v *VerticaDB) IsMainClusterStopped() bool {
+	return v.Spec.Shutdown || v.areAllSubclustersShutdown()
+}
+
+// ShouldKeepMainClusterShutdown returns true if the main cluster is
+// effectively shutdown and its pods are terminated.
+func (v *VerticaDB) ShouldKeepMainClusterShutdown() bool {
+	return v.Spec.Shutdown && v.IsStatusConditionTrue(MainClusterPodsTerminated)
+}
+
+func (v *VerticaDB) areAllSubclustersShutdown() bool {
+	scSbMap := v.GenSubclusterSandboxStatusMap()
+	for i := range v.Spec.Subclusters {
+		scName := v.Spec.Subclusters[i].Name
+		if scSbMap[scName] == MainCluster {
+			scStatus, ok := v.FindSubclusterStatus(scName)
+			if !ok || !scStatus.Shutdown {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // GetHPAMetrics extract an return hpa metrics from MetricDefinition struct.

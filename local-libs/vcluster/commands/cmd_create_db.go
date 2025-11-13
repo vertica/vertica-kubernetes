@@ -169,7 +169,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 		&c.createDBOptions.TimeoutNodeStartupSeconds,
 		"startup-timeout",
 		util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds),
-		"The time, in seconds, to wait for the nodes to start after database creation (default: 300).",
+		"The time, in seconds, to wait for the nodes to start after database creation.",
 	)
 	cmd.Flags().BoolVar(
 		&c.createDBOptions.EnableTLSAuth,
@@ -200,21 +200,11 @@ func (c *CmdCreateDB) setSpreadlFlags(cmd *cobra.Command) {
 		"The Spread logging level.",
 	)
 	cmd.Flags().BoolVar(
-		&c.createDBOptions.P2p,
-		"point-to-point",
-		true,
-		"Configures Spread to use point-to-point communication between all Vertica nodes (default: enabled).\n"+
-			"You should use this option if your nodes are not on the same subnet and for virtual environments.\n"+
-			"Do not combine this option with --broadcast.\n"+
-			"Up to 80 Spread daemons are supported by point-to-point communication. You can exceed the 80-node limit by using large cluster mode,\n"+
-			"which only installs the Spread daemon on a subset of your nodes.",
-	)
-	cmd.Flags().BoolVar(
 		&c.createDBOptions.Broadcast,
 		"broadcast",
 		false,
 		"Configures Spread to use UDP broadcast traffic between nodes on the same subnet (default: disabled).\n"+
-			"Do not combine this option with `--point-to-point`.\n"+
+			"Do not combine this option with --point-to-point.\n"+
 			"Up to 80 Spread daemons are supported by broadcast traffic. You can exceed the 80-node limit by using large cluster mode,\n"+
 			"which does not install a Spread daemon on each node.",
 	)
