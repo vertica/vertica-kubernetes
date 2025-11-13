@@ -242,9 +242,14 @@ func (options *VCreateDatabaseOptions) validateEonOptions() error {
 }
 
 func (options *VCreateDatabaseOptions) validateExtraOptions() error {
-	if options.Broadcast && options.P2p {
-		return fmt.Errorf("cannot use both Broadcast and Point-to-point networking mode")
+	// broadcast and point-to-point mode are mutual exclusive
+	if options.Broadcast {
+		if options.CommunalStorageLocation != "" {
+			return fmt.Errorf("cannot use broadcast mode in an Eon database")
+		}
+		options.P2p = false
 	}
+
 	// -1 is the default large cluster value, meaning 120 control nodes
 	if options.LargeCluster != util.DefaultLargeCluster && (options.LargeCluster < 1 || options.LargeCluster > util.MaxLargeCluster) {
 		return fmt.Errorf("must specify a valid large cluster value in range [1, 120]")
