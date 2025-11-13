@@ -1673,7 +1673,7 @@ func (v *VerticaDB) IsInterNodeTLSAuthEnabled() bool {
 
 // IsAnyTLSAuthEnabled returns true if any TLS config is enabled
 func (v *VerticaDB) IsAnyTLSAuthEnabled() bool {
-	return v.IsHTTPSNMATLSAuthEnabled() || v.IsClientServerTLSAuthEnabled()
+	return v.IsHTTPSNMATLSAuthEnabled() || v.IsClientServerTLSAuthEnabled() || v.IsInterNodeTLSAuthEnabled()
 }
 
 // IsAnyTLSAuthEnabledWithMinVersion returns true if any TLS config is enabled and operator meets the minimum version for TLS.

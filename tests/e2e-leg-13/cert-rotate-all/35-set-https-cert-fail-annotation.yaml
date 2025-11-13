@@ -1,6 +1,6 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
   annotations:
     vertica.com/trigger-tls-update-failure: "https_before_tls_update"

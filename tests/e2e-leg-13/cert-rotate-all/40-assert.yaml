@@ -6,7 +6,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Starting tls cert rotation for HTTP with secret name custom-cert1 and mode verify_ca
 ---
 apiVersion: v1
@@ -17,7 +17,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Failed to rotate HTTP tls cert with secret name custom-cert1 and mode verify_ca
 ---
 apiVersion: v1
@@ -28,7 +28,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Starting HTTP TLS cert rollback after failed update
 ---
 apiVersion: v1
@@ -39,7 +39,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: HTTP TLS cert rollback completed successfully
 ---
 apiVersion: v1
@@ -50,7 +50,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Starting tls cert rotation for Server with secret name custom-cert2 and mode try_verify
 ---
 apiVersion: v1
@@ -61,7 +61,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Successfully rotated Server tls cert with secret name custom-cert2 and mode try_verify
 ---
 apiVersion: v1
@@ -72,7 +72,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Starting tls cert rotation for Internode with secret name custom-cert2 and mode verify_ca
 ---
 apiVersion: v1
@@ -83,13 +83,13 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 message: Successfully rotated Internode tls cert with secret name custom-cert2 and mode verify_ca
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 spec:
   httpsNMATLS:
     secret: custom-cert

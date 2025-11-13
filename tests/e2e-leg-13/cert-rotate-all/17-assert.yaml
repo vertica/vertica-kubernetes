@@ -14,14 +14,20 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-cert-rotate-both-sc1
+  name: v-cert-rotate-all-sc1
 status:
   replicas: 3
+  readyReplicas: 3
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-cert-rotate-both
+  name: v-cert-rotate-all
 status:
+  tlsConfigs:
+    - name: httpsNMA
+    - name: clientServer
+    - name: interNode
   subclusters:
     - addedToDBCount: 3
+      upNodeCount: 3

@@ -434,8 +434,11 @@ func (h *TLSServerCertGenReconciler) InvalidCertRollback(ctx context.Context, me
 
 	if h.Vdb.IsTLSCertRollbackEnabled() {
 		reason := vapi.FailureBeforeHTTPSCertHealthPollingReason
-		if tlsConfigName == vapi.ClientServerTLSConfigName {
+		switch tlsConfigName {
+		case vapi.ClientServerTLSConfigName:
 			reason = vapi.RollbackAfterServerCertRotationReason
+		case vapi.InterNodeTLSConfigName:
+			reason = vapi.RollbackAfterInterNodeCertRotationReason
 		}
 		cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
 		if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {

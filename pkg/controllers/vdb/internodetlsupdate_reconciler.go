@@ -21,9 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 
@@ -59,18 +57,11 @@ func MakeInterNodeTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will rotate TLS certificate or mode.
 func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if h.Vdb.IsTLSCertRollbackNeeded() && h.Vdb.IsTLSCertRollbackEnabled() && h.Vdb.GetTLSCertRollbackReason() ==
-		vapi.RollbackAfterInterNodeCertRotationReason {
-		return h.rollback(ctx)
-	}
 	if h.shouldSkipReconciler() {
 		return ctrl.Result{}, nil
 	}
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
-	}
-	if !h.Vdb.IsInterNodeConfigEnabled() {
-		return ctrl.Result{}, nil
 	}
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
@@ -79,10 +70,15 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	// initialize the manager
 	h.Manager.setTLSUpdatedata()
 	h.Manager.setTLSUpdateType()
+	// If no secret is in use yet, run initial TLS configuration
 	if h.Vdb.GetInterNodeTLSSecretInUse() == "" {
 		rec := MakeTLSConfigReconciler(h.VRec, h.Log, h.Vdb, h.PFacts.PRunner, h.Dispatcher, h.PFacts, vapi.InterNodeTLSConfigName, h.Manager)
 		res, err2 := rec.Reconcile(ctx, req)
 		return res, err2
+	}
+	// After initial configuration, check if inter-node config is enabled in DB
+	if !h.Vdb.IsInterNodeConfigEnabled() {
+		return ctrl.Result{}, nil
 	}
 	// no-op if neither inter node secret nor tls mode
 	// changed
@@ -115,55 +111,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 
 func (h *InterNodeTLSUpdateReconciler) shouldSkipReconciler() bool {
 	return !h.Vdb.IsDBInitialized() || h.Vdb.IsTLSCertRollbackNeeded() || !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()
-}
-
-func (h *InterNodeTLSUpdateReconciler) rollback(ctx context.Context) (ctrl.Result, error) {
-	if !h.Vdb.IsTLSCertRollbackInProgress() {
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackStarted,
-			"Starting %s TLS cert rollback after failed update", tlsConfigInterNode)
-		// Set TLSCertRollbackInProgress and rollback
-		cond := vapi.MakeCondition(vapi.TLSCertRollbackInProgress, metav1.ConditionTrue, "InProgress")
-		err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		cond = &metav1.Condition{Type: vapi.TLSConfigUpdateInProgress, Status: metav1.ConditionFalse, Reason: "Completed"}
-
-		h.Log.Info("Clearing condition", "type", cond.Type)
-		if err = vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-			h.Log.Error(err, "Failed to clear condition", "type", cond.Type)
-			return ctrl.Result{}, err
-		}
-		nm := h.Vdb.ExtractNamespacedName()
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			// Always fetch the latest in case we are in the retry loop
-			if err2 := h.VRec.Client.Get(ctx, nm, h.Vdb); err2 != nil {
-				return err2
-			}
-			spec := &vapi.TLSConfigSpec{}
-			spec.Secret = h.Vdb.GetInterNodeTLSSecretInUse()
-			spec.Mode = h.Vdb.GetInterNodeTLSModeInUse()
-			h.Vdb.Spec.InterNodeTLS = spec
-			return h.VRec.Client.Update(ctx, h.Vdb)
-		})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		conds := []metav1.Condition{
-			{Type: vapi.TLSCertRollbackInProgress, Status: metav1.ConditionFalse, Reason: "Completed"},
-			{Type: vapi.TLSCertRollbackNeeded, Status: metav1.ConditionFalse, Reason: "Completed"},
-		}
-		for _, cond := range conds {
-			h.Log.Info("Clearing condition", "type", cond.Type)
-			if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, &cond); err != nil {
-				h.Log.Error(err, "Failed to clear condition", "type", cond.Type)
-				return ctrl.Result{}, err
-			}
-		}
-		h.VRec.Eventf(h.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackSucceeded,
-			"%s TLS cert rollback completed successfully", tlsConfigInterNode)
-	}
-	return ctrl.Result{}, nil
 }
 
 // updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
