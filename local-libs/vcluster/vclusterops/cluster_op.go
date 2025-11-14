@@ -633,6 +633,7 @@ type ClusterCommands interface {
 	VStopSubcluster(options *VStopSubclusterOptions) error
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
+	VUpgradeVertica(options *VUpgradeVerticaOptions) error
 	VWorkloadCancel(options *VWorkloadCancelOptions) error
 	VUninstallPackages(options *VUninstallPackagesOptions) (*UninstallPackagesStatus, error)
 	VListPackages(options *VListPackagesOptions) (*ListPackageStatus, error)
