@@ -85,6 +85,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.resetTLSUpdateCondition,
 		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
+		r.setInterNodeFinishedCondition,
 		r.cleanUpRollbackConditions,
 	}
 
@@ -143,6 +144,30 @@ func (r *RollbackAfterCertRotationReconciler) resetTLSUpdateCondition(ctx contex
 	r.Log.Info("Clearing condition", "type", cond.Type)
 	if err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, &cond); err != nil {
 		r.Log.Error(err, "Failed to clear condition", "type", cond.Type)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// setInterNodeFinishedCondition will set InterNodeTLSConfigUpdateFinished to True
+// after a rollback completes. This is needed because InterNode doesn't go through
+// NMA restart (unlike ClientServer/HTTPS), so we need to explicitly set the finished
+// condition here.
+func (r *RollbackAfterCertRotationReconciler) setInterNodeFinishedCondition(ctx context.Context) (ctrl.Result, error) {
+	if r.Vdb.GetTLSCertRollbackReason() != vapi.RollbackAfterInterNodeCertRotationReason {
+		return ctrl.Result{}, nil
+	}
+
+	cond := metav1.Condition{
+		Type:   vapi.InterNodeTLSConfigUpdateFinished,
+		Status: metav1.ConditionTrue,
+		Reason: "Completed",
+	}
+
+	r.Log.Info("Setting condition", "type", cond.Type, "status", cond.Status)
+	if err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, &cond); err != nil {
+		r.Log.Error(err, "Failed to set condition", "type", cond.Type)
 		return ctrl.Result{}, err
 	}
 

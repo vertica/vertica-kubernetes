@@ -224,11 +224,6 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 	if err != nil {
 		return err
 	}
-	if secretFieldName != nmaTLSSecret {
-		if err := h.ValidateSecretCertificate(ctx, secret, tlsConfigName, secret.Name); err != nil {
-			return err
-		}
-	}
 
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)

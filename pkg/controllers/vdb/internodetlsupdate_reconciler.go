@@ -57,7 +57,7 @@ func MakeInterNodeTLSUpdateReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will rotate TLS certificate or mode.
 func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if h.shouldSkipReconciler() {
+	if h.Vdb.ShouldSkipInterNodeTLSUpdateReconcile() {
 		return ctrl.Result{}, nil
 	}
 	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
@@ -107,10 +107,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func (h *InterNodeTLSUpdateReconciler) shouldSkipReconciler() bool {
-	return !h.Vdb.IsDBInitialized() || h.Vdb.IsTLSCertRollbackNeeded() || !h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()
 }
 
 // updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they

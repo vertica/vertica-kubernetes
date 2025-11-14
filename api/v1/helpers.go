@@ -2516,6 +2516,17 @@ func (v *VerticaDB) ShouldSkipHTTPSTLSUpdateReconcile(isRollback bool) bool {
 	)
 }
 
+// ShouldSkipInterNodeTLSUpdateReconcile will check if TLS Update can be skipped for InterNode.
+// Note that condition logic for internode is reversed from clientServer/https, where
+// False = "rotation in progress" and True = "rotation complete"
+func (v *VerticaDB) ShouldSkipInterNodeTLSUpdateReconcile() bool {
+	return v.ShouldSkipTLSUpdateReconcile(
+		false,
+		!v.IsInterNodeTLSAuthEnabledWithMinVersion(),
+		v.IsStatusConditionFalse(InterNodeTLSConfigUpdateFinished),
+	)
+}
+
 // ShouldSkipTLSUpdateReconcile will check if TLS Update can be skipped for a specific TLS config.
 // Possible reasons are:
 // 1) If TLS not enabled

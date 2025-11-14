@@ -63,11 +63,7 @@ func (h *TLSConfigReconciler) Reconcile(ctx context.Context, request *ctrl.Reque
 	if h.shouldSkipTLSConfigReconcile() {
 		return ctrl.Result{}, nil
 	}
-	// If this config's TLS auth is disabled, then we skip the TLS configuration.
-	if !h.Vdb.IsTLSAuthEnabledForConfig(h.TLSConfigName) {
-		h.Log.Info("TLS auth is disabled. Skipping TLS configuration", "tlsConfigName", h.TLSConfigName)
-		return ctrl.Result{}, nil
-	}
+
 	h.Log.Info("Starting TLS reconciliation",
 		"certRotationEnabled", h.Vdb.IsAnyTLSAuthEnabledWithMinVersion(),
 		"secretName", h.Vdb.GetSecretInUse(h.TLSConfigName),
@@ -165,9 +161,10 @@ func (h *TLSConfigReconciler) checkIfTLSAuthenticationCreatedInDB(ctx context.Co
 //  2. If TLS is enabled but secret is not set in status yet
 //  3. If DB is not ready (not initialized, upgrading, or restarting)
 func (h *TLSConfigReconciler) shouldSkipTLSConfigReconcile() bool {
-	return ((h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion()) &&
-		h.Vdb.GetSecretInUse(h.TLSConfigName) != "") || !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() &&
-		!h.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion() || !h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
+	return !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() ||
+		!h.Vdb.IsTLSAuthEnabledForConfig(h.TLSConfigName) ||
+		h.Vdb.GetSecretInUse(h.TLSConfigName) != "" ||
+		!h.Vdb.IsStatusConditionTrue(vapi.DBInitialized) ||
 		h.Vdb.IsStatusConditionTrue(vapi.UpgradeInProgress) ||
 		h.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 }
