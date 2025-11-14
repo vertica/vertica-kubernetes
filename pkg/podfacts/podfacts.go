@@ -1677,7 +1677,13 @@ func (p *PodFacts) RemoveStartupFileInPods(ctx context.Context, vdb *vapi.Vertic
 		return errors.New("sandbox not found")
 	}
 
+	scStatusMap := vdb.GenSubclusterStatusMap()
 	for _, sc := range scs {
+		scStatus := scStatusMap[sc]
+		// If the subcluster has already been shutdown, skip it.
+		if scStatus == nil || scStatus.Shutdown {
+			continue
+		}
 		err := p.RemoveStartupFileInSubclusterPods(ctx, sc, successMsg)
 		if err != nil {
 			return err

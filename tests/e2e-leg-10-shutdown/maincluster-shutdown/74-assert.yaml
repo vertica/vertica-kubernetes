@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2024] Open Text.
+# (c) Copyright [2021-2025] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,33 +11,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Event
+reason: TerminatingSubclusterPods
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-main-shutdown
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-main-shutdown-pri1
 status:
-  replicas: 3
-  readyReplicas: 3
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-main-shutdown-sec1
 status:
-  replicas: 3
-  readyReplicas: 3
+  replicas: 0
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-main-shutdown
+spec:
+  subclusters:
+  - name: pri1
+    type: primary
+    shutdown: true
+  - name: sec1
+    type: secondary
+    shutdown: true
 status:
   subclusters:
     - addedToDBCount: 3
-      upNodeCount: 3
-      shutdown: false
+      upNodeCount: 0
+      shutdown: true
       name: pri1
+      type: primary
     - addedToDBCount: 3
-      upNodeCount: 3
-      shutdown: false
+      upNodeCount: 0
+      shutdown: true
       name: sec1
+      type: secondary
