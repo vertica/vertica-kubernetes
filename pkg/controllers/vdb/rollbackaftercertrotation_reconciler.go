@@ -70,8 +70,11 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	}
 
 	tlsConfigName := tlsConfigHTTPS
-	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+	switch r.Vdb.GetTLSCertRollbackReason() {
+	case vapi.RollbackAfterServerCertRotationReason:
 		tlsConfigName = tlsConfigServer
+	case vapi.RollbackAfterInterNodeCertRotationReason:
+		tlsConfigName = tlsConfigInterNode
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.TLSCertRollbackStarted,
@@ -82,6 +85,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.resetTLSUpdateCondition,
 		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
+		r.setInterNodeFinishedCondition,
 		r.cleanUpRollbackConditions,
 	}
 
@@ -146,6 +150,30 @@ func (r *RollbackAfterCertRotationReconciler) resetTLSUpdateCondition(ctx contex
 	return ctrl.Result{}, nil
 }
 
+// setInterNodeFinishedCondition will set InterNodeTLSConfigUpdateFinished to True
+// after a rollback completes. This is needed because InterNode doesn't go through
+// NMA restart (unlike ClientServer/HTTPS), so we need to explicitly set the finished
+// condition here.
+func (r *RollbackAfterCertRotationReconciler) setInterNodeFinishedCondition(ctx context.Context) (ctrl.Result, error) {
+	if r.Vdb.GetTLSCertRollbackReason() != vapi.RollbackAfterInterNodeCertRotationReason {
+		return ctrl.Result{}, nil
+	}
+
+	cond := metav1.Condition{
+		Type:   vapi.InterNodeTLSConfigUpdateFinished,
+		Status: metav1.ConditionTrue,
+		Reason: "Completed",
+	}
+
+	r.Log.Info("Setting condition", "type", cond.Type, "status", cond.Status)
+	if err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb, &cond); err != nil {
+		r.Log.Error(err, "Failed to set condition", "type", cond.Type)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
 // updateTLSConfigInVdb will revert the secret/mode in the spec to the previous good values,
 // which are retrieved from the status
 func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.Context) (ctrl.Result, error) {
@@ -158,7 +186,8 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 		}
 		mode := ""
 		tlsConfigName := ""
-		if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+		switch r.Vdb.GetTLSCertRollbackReason() {
+		case vapi.RollbackAfterServerCertRotationReason:
 			tlsConfigName = vapi.ClientServerTLSConfigName
 			mode = r.Vdb.GetClientServerTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetClientServerTLSMode(), mode) {
@@ -172,7 +201,21 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 			spec.Secret = r.Vdb.GetClientServerTLSSecretInUse()
 			spec.Mode = mode
 			r.Vdb.Spec.ClientServerTLS = spec
-		} else {
+		case vapi.RollbackAfterInterNodeCertRotationReason:
+			tlsConfigName = vapi.InterNodeTLSConfigName
+			mode = r.Vdb.GetInterNodeTLSModeInUse()
+			if strings.EqualFold(r.Vdb.GetInterNodeTLSMode(), mode) {
+				mode = r.Vdb.GetSpecInterNodeTLSMode()
+			}
+			// Preserve all existing fields
+			spec := r.Vdb.Spec.InterNodeTLS.DeepCopy()
+			if spec == nil {
+				spec = &vapi.TLSConfigSpec{}
+			}
+			spec.Secret = r.Vdb.GetInterNodeTLSSecretInUse()
+			spec.Mode = mode
+			r.Vdb.Spec.InterNodeTLS = spec
+		default:
 			tlsConfigName = vapi.HTTPSNMATLSConfigName
 			mode = r.Vdb.GetHTTPSTLSModeInUse()
 			if strings.EqualFold(r.Vdb.GetHTTPSNMATLSMode(), mode) {
@@ -199,9 +242,13 @@ func (r *RollbackAfterCertRotationReconciler) updateTLSConfigInVdb(ctx context.C
 func (r *RollbackAfterCertRotationReconciler) setAutoRotateStatus(ctx context.Context) (ctrl.Result, error) {
 	tlsConfigName := vapi.HTTPSNMATLSConfigName
 	failedSecret := r.Vdb.GetHTTPSNMATLSSecret()
-	if r.Vdb.GetTLSCertRollbackReason() == vapi.RollbackAfterServerCertRotationReason {
+	switch r.Vdb.GetTLSCertRollbackReason() {
+	case vapi.RollbackAfterServerCertRotationReason:
 		tlsConfigName = vapi.ClientServerTLSConfigName
 		failedSecret = r.Vdb.GetClientServerTLSSecret()
+	case vapi.RollbackAfterInterNodeCertRotationReason:
+		tlsConfigName = vapi.InterNodeTLSConfigName
+		failedSecret = r.Vdb.GetInterNodeTLSSecret()
 	}
 
 	if len(r.Vdb.GetAutoRotateSecrets(tlsConfigName)) == 0 {

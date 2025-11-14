@@ -28,6 +28,7 @@ import (
 )
 
 const tlsConfigServer = "Server"
+const tlsConfigInterNode = "Internode"
 
 // RotateNMACerts will rotate nma cert
 func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts.Option) error {
@@ -63,7 +64,9 @@ func (v *VClusterOps) RotateTLSCerts(ctx context.Context, opts ...rotatetlscerts
 	if s.TLSConfig == tlsConfigServer && triggeredFailure == vmeta.TriggerTLSUpdateFailureDuringClientServerTLSUpdate {
 		return fmt.Errorf("forced error in Server TLS cert rotation before updating TLS config")
 	}
-
+	if s.TLSConfig == tlsConfigInterNode && triggeredFailure == vmeta.TriggerTLSUpdateFailureDuringInterNodeTLSUpdate {
+		return fmt.Errorf("forced error in Internode TLS cert rotation before updating TLS config")
+	}
 	// call vclusterOps library to rotate nma cert
 	vopts := v.genRotateTLSCertsOptions(&s, certs)
 	err = v.VRotateTLSCerts(&vopts)
@@ -112,6 +115,8 @@ func (v *VClusterOps) genRotateTLSCertsOptions(s *rotatetlscerts.Params, certs *
 	opts.UserName = v.VDB.GetVerticaUser()
 	v.setAuthentication(&opts.DatabaseOptions, v.VDB.GetVerticaUser(), v.Password, certs)
 	opts.TLSSecretManager = s.NewSecretManager
-
+	if s.TLSConfig == tlsConfigInterNode {
+		opts.Password = v.Password
+	}
 	return opts
 }

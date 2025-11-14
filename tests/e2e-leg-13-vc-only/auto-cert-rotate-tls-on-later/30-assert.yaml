@@ -66,6 +66,7 @@ status:
     - cert2
     - cert3
   - name: clientServer
+  - name: interNode
 ---
 apiVersion: v1
 kind: Event

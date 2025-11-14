@@ -57,3 +57,4 @@ status:
     - cert3
     - cert4
     autoRotateFailedSecret: cert2
+  - name: interNode
