@@ -65,7 +65,7 @@ func (op *httpsListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 		}
 		// Add filter parameter only if specified and not "all"
 		// API defaults to "all" when filter is omitted
-		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
+		if op.packageFilter != "" && op.packageFilter != FilterAll {
 			httpRequest.QueryParams["filter"] = op.packageFilter
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest

@@ -22,6 +22,11 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
+const (
+	FilterAll     = "all"
+	FilterDefault = "default"
+)
+
 type VListPackagesOptions struct {
 	/* part 1: basic db info */
 	DatabaseOptions

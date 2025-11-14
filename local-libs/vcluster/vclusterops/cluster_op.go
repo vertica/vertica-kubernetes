@@ -618,7 +618,6 @@ type ClusterCommands interface {
 	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
 	VReplicationStatus(options *VReplicationStatusDatabaseOptions) (*ReplicationStatusResponse, error)
 	VRestartNMA(options *VRestartNMAOptions) error
-	VReturnEpoch(options *VReturnEpochOptions) (int64, error)
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
 	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
@@ -634,7 +633,6 @@ type ClusterCommands interface {
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
 	VWorkloadCancel(options *VWorkloadCancelOptions) error
-	VUninstallPackages(options *VUninstallPackagesOptions) (*UninstallPackagesStatus, error)
 	VListPackages(options *VListPackagesOptions) (*ListPackageStatus, error)
 	VWorkloadCapture(options *VWorkloadCaptureOptions) error
 	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
