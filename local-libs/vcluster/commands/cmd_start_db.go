@@ -94,7 +94,7 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 		&c.startDBOptions.StatePollingTimeout,
 		"timeout",
 		util.DefaultTimeoutSeconds,
-		"The time (in seconds) to wait for nodes to start up. Extend this value to have longer wait time (such as 3600 for one hour).",
+		"The time (in seconds) to wait for nodes to start up.",
 	)
 	// Update description of hosts flag locally for a detailed hint
 	cmd.Flags().Lookup(hostsFlag).Usage = "A comma-separated list of hosts in database. This is used to start sandboxed hosts."

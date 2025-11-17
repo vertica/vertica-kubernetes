@@ -29,10 +29,11 @@ import (
 func TestGetHoursAgo(t *testing.T) {
 	// disable this test for DST changes
 	const expectedHoursAgo = 48
-	isDSTPast := time.Now().Add(-2 * expectedHoursAgo * time.Hour).IsDST()
-	isDSTFuture := time.Now().Add(2 * expectedHoursAgo * time.Hour).IsDST()
-	// skip if the 96 hour window crosses a DST boundary
-	if isDSTPast != isDSTFuture {
+	isDST := time.Now().IsDST()
+	isDSTPast := time.Now().Add(-2 * expectedHoursAgo).IsDST()
+	isDSTFuture := time.Now().Add(2 * expectedHoursAgo).IsDST()
+	if !((isDST && isDSTPast && isDSTFuture) ||
+		(!isDST && !isDSTPast && !isDSTFuture)) {
 		return
 	}
 

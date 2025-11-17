@@ -18,8 +18,6 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
-
-	"github.com/vertica/vcluster/vclusterops/util"
 )
 
 type nmaListPackagesOp struct {
@@ -48,7 +46,7 @@ func (op *nmaListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 		httpRequest.QueryParams = map[string]string{}
 
 		// Add query parameters if filter is specified
-		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
+		if op.packageFilter != "" && op.packageFilter != FilterAll {
 			httpRequest.QueryParams["filter"] = op.packageFilter
 		}
 

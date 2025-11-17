@@ -51,31 +51,3 @@ func TestValidateDepotSize(t *testing.T) {
 	assert.Equal(t, res, true)
 	assert.Nil(t, err)
 }
-
-func TestSpreadMode(t *testing.T) {
-	var options VCreateDatabaseOptions
-	const communalStorageLocation = "/communal"
-
-	// default spread mode setting: p2p mode for enterprise database
-	options.setDefaultValues()
-	err := options.validateExtraOptions()
-	assert.Nil(t, err)
-
-	// broadcast mode for enterprise database
-	options.Broadcast = true
-	err = options.validateExtraOptions()
-	assert.Nil(t, err)
-
-	// p2p mode for Eon databse
-	options.CommunalStorageLocation = communalStorageLocation
-	options.Broadcast = false
-	err = options.validateExtraOptions()
-	assert.Nil(t, err)
-
-	// broadcast mode for Eon database, which should fail
-	options.CommunalStorageLocation = communalStorageLocation
-	options.Broadcast = true
-	err = options.validateExtraOptions()
-	assert.NotNil(t, err)
-	assert.ErrorContains(t, err, "cannot use broadcast mode in an Eon database")
-}

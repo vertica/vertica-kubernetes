@@ -267,14 +267,8 @@ const (
 	getDrainingStatusSubCmd = "get_draining_status"
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
-	returnEpochSubCmd       = "return_epoch"
 	clusterHealth           = "cluster_health"
-	unInstallPkgSubCmd      = "uninstall_packages"
 	listPkgSubCmd           = "list_packages"
-	upgradeVerticaSubCmd    = "upgrade_vertica"
-	upgradePart1SubCmd      = "create_sandbox"
-	upgradePart2SubCmd      = "promote_sandbox"
-	upgradePart3SubCmd      = "finalize"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -637,7 +631,6 @@ func constructCmds() []*cobra.Command {
 		makeCmdReIP(),
 		makeCmdShowRestorePoints(),
 		makeCmdInstallPackages(),
-		makeCmdReturnEpoch(),
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),
@@ -663,9 +656,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
 		makeCmdClusterHealth(),
-		makeCmdUninstallPackages(),
 		makeCmdListPackages(),
-		makeCmdUpgradeVertica(),
 	}
 }
 
