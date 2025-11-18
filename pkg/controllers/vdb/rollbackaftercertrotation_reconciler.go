@@ -85,7 +85,7 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 		r.resetTLSUpdateCondition,
 		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
-		r.setInterNodeFinishedCondition,
+		r.resetInterNodeInProgressCondition,
 		r.cleanUpRollbackConditions,
 	}
 
@@ -150,18 +150,18 @@ func (r *RollbackAfterCertRotationReconciler) resetTLSUpdateCondition(ctx contex
 	return ctrl.Result{}, nil
 }
 
-// setInterNodeFinishedCondition will set InterNodeTLSConfigUpdateFinished to True
+// resetInterNodeInProgressCondition will set InterNodeTLSConfigUpdateInProgress to False
 // after a rollback completes. This is needed because InterNode doesn't go through
-// NMA restart (unlike ClientServer/HTTPS), so we need to explicitly set the finished
+// NMA restart (unlike ClientServer/HTTPS), so we need to explicitly clear the in-progress
 // condition here.
-func (r *RollbackAfterCertRotationReconciler) setInterNodeFinishedCondition(ctx context.Context) (ctrl.Result, error) {
+func (r *RollbackAfterCertRotationReconciler) resetInterNodeInProgressCondition(ctx context.Context) (ctrl.Result, error) {
 	if r.Vdb.GetTLSCertRollbackReason() != vapi.RollbackAfterInterNodeCertRotationReason {
 		return ctrl.Result{}, nil
 	}
 
 	cond := metav1.Condition{
-		Type:   vapi.InterNodeTLSConfigUpdateFinished,
-		Status: metav1.ConditionTrue,
+		Type:   vapi.InterNodeTLSConfigUpdateInProgress,
+		Status: metav1.ConditionFalse,
 		Reason: "Completed",
 	}
 

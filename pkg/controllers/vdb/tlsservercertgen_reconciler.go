@@ -220,29 +220,39 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			return err
 		}
 	}
-	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)
+	secret, cert, err := h.createNewSecret(ctx, secretFieldName, secretName)
 	if err != nil {
 		return err
+	}
+
+	// Validate the newly generated certificate before setting it in the VDB
+	if secretFieldName != nmaTLSSecret {
+		err = h.ValidateCertificateData(ctx, cert.TLSCrt(), cert.TLSKey(), tlsConfigName, secret.Name)
+		if err != nil {
+			h.Log.Error(err, "failed to validate newly generated certificate", "secretName", secret.Name)
+			return err
+		}
 	}
 
 	h.Log.Info(fmt.Sprintf("created certificate and secret %s for %s", secret.Name, secretFieldName))
 	return h.setSecretNameInVDB(ctx, secretFieldName, secret.ObjectMeta.Name)
 }
 
-func (h *TLSServerCertGenReconciler) createNewSecret(ctx context.Context, secretFieldName, secretName string) (*corev1.Secret, error) {
+func (h *TLSServerCertGenReconciler) createNewSecret(ctx context.Context, secretFieldName,
+	secretName string) (*corev1.Secret, security.Certificate, error) {
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return secret, nil
+	return secret, cert, nil
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
@@ -322,37 +332,26 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 	})
 }
 
-// Validate that Secret contains a valid certificate
-// If certificate is expiring soon, alert user
-func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
+// ValidateCertificateData validates certificate data (PEM encoded cert and key).
+// This function performs validation on the certificate without retrieving it from k8s.
+// If certificate is expiring soon, alert user.
+func (h *TLSServerCertGenReconciler) ValidateCertificateData(
 	ctx context.Context,
-	secret *corev1.Secret,
+	certPEM []byte,
+	keyPEM []byte,
 	tlsConfigName string,
 	secretName string,
 ) error {
-	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
+	h.Log.Info("validating TLS certificate data", "secretName", secretName)
 
-	// Check if secret exists
-	nm := names.GenNamespacedName(h.Vdb, secretName)
-	err := h.VRec.Client.Get(ctx, nm, secret)
-	if kerrors.IsNotFound(err) {
-		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName, err)
-		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
-			return err1
-		}
-		return err
-	}
-
-	certPEM := secret.Data[TLSCertName]
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
 	}
-	keyPEM := secret.Data[TLSKeyName]
 	if keyPEM == nil {
 		return errors.New("failed to decode PEM block containing key")
 	}
 
-	err = security.ValidateTLSSecret(certPEM, keyPEM)
+	err := security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
 		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
@@ -381,8 +380,37 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime.UTC().Format(time.RFC3339)+" UTC")
 	}
 
-	h.Log.Info("successfully completed validating TLS certificate for existing secret", "secretName", secretName)
+	h.Log.Info("successfully completed validating TLS certificate data", "secretName", secretName)
 	return nil
+}
+
+// ValidateSecretCertificate validates that a Secret contains a valid certificate.
+// This function retrieves the secret from k8s and then validates its certificate data.
+// If certificate is expiring soon, alert user.
+func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
+	ctx context.Context,
+	secret *corev1.Secret,
+	tlsConfigName string,
+	secretName string,
+) error {
+	h.Log.Info("validating TLS certificate for existing secret", "secretName", secretName)
+
+	// Check if secret exists
+	nm := names.GenNamespacedName(h.Vdb, secretName)
+	err := h.VRec.Client.Get(ctx, nm, secret)
+	if kerrors.IsNotFound(err) {
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed; secret %q does not exist", tlsConfigName, secretName, err)
+		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
+			return err1
+		}
+		return err
+	}
+
+	certPEM := secret.Data[TLSCertName]
+	keyPEM := secret.Data[TLSKeyName]
+
+	// Delegate to ValidateCertificateData for the actual validation
+	return h.ValidateCertificateData(ctx, certPEM, keyPEM, tlsConfigName, secretName)
 }
 
 // ShouldGenerateCert determines whether generating TLS server certificates should run at all.

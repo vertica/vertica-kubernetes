@@ -23,7 +23,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
@@ -60,9 +59,6 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if h.Vdb.ShouldSkipInterNodeTLSUpdateReconcile() {
 		return ctrl.Result{}, nil
 	}
-	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
-		return ctrl.Result{}, err
-	}
 	err := h.PFacts.Collect(ctx, h.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -85,7 +81,7 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 	if !h.Manager.needTLSConfigChange() {
 		return ctrl.Result{}, nil
 	}
-	if err2 := h.updateCondition(ctx, metav1.ConditionFalse); err2 != nil {
+	if err2 := h.updateCondition(ctx, metav1.ConditionTrue); err2 != nil {
 		return ctrl.Result{}, err2
 	}
 	upPods := h.PFacts.FindUpPods("")
@@ -103,38 +99,33 @@ func (h *InterNodeTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.
 		return res, err
 	}
 
-	if err := h.updateCondition(ctx, metav1.ConditionTrue); err != nil {
+	// Update the status with the new secret and mode after successful rotation
+	if err := h.updateTLSConfigInStatus(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := h.updateCondition(ctx, metav1.ConditionFalse); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-// updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
-// are nil. This is to handle the case where a user created a vdb with webhook
-// disabled and enabled field nil. In case the turn on the webhook later, we
-// do not want it to alter the enabled field.
-func (h *InterNodeTLSUpdateReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
-	if !(h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil) {
-		return nil
+// updateTLSConfigInStatus updates the InterNode TLS config in status after successful rotation
+func (h *InterNodeTLSUpdateReconciler) updateTLSConfigInStatus(ctx context.Context) error {
+	tls := vapi.MakeInterNodeTLSConfig(h.Vdb.GetInterNodeTLSSecret(), h.Vdb.GetInterNodeTLSMode())
+	if err := vdbstatus.UpdateTLSConfigs(ctx, h.VRec.GetClient(), h.Vdb, []*vapi.TLSConfigStatus{tls}); err != nil {
+		h.Log.Error(err, "failed to update InterNode TLS config in status")
+		return err
 	}
-	nm := h.Vdb.ExtractNamespacedName()
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		// Always fetch the latest in case we are in the retry loop
-		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
-			return err
-		}
-		if h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil {
-			enabled := true
-			h.Vdb.Spec.InterNodeTLS.Enabled = &enabled
-		}
-		return h.VRec.Client.Update(ctx, h.Vdb)
-	})
+	h.Log.Info("saved new InterNode TLS cert secret name and mode in status",
+		"secret", h.Vdb.GetInterNodeTLSSecret(), "mode", h.Vdb.GetInterNodeTLSMode())
+	return nil
 }
 
 func (h *InterNodeTLSUpdateReconciler) updateCondition(ctx context.Context, trueOrFalse metav1.ConditionStatus) error {
-	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateFinished, trueOrFalse, "Completed")
+	cond := vapi.MakeCondition(vapi.InterNodeTLSConfigUpdateInProgress, trueOrFalse, "Completed")
 	if err := vdbstatus.UpdateCondition(ctx, h.VRec.GetClient(), h.Vdb, cond); err != nil {
-		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateFinished+" to true")
+		h.Log.Error(err, "failed to set condition "+vapi.InterNodeTLSConfigUpdateInProgress)
 		return err
 	}
 	return nil

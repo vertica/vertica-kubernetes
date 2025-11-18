@@ -203,27 +203,28 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 }
 
 // updateTLSModeInStatus updates the tls mode in the status after it was updated
-// in the database
+// in the database. For InterNode TLS, the status is updated by the InterNodeTLSUpdateReconciler
+// directly, so we skip it here.
 func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
-	if t.isInterNodeTLSConfig() {
-		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
-		internodeTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetTLSConfigSpecByName(t.tlsConfigName).Secret, t.NewTLSMode)
-		err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{internodeTLSConfig})
-		if err != nil {
-			t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
-			return err
-		}
+	// Skip update for InterNode TLS as it's handled by InterNodeTLSUpdateReconciler
+	if t.tlsConfigName == vapi.InterNodeTLSConfigName {
 		return nil
 	}
-	if t.CurrentTLSMode != t.NewTLSMode {
-		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
-		httpsTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
-		err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
-		if err != nil {
-			t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
-			return err
-		}
+
+	// Skip update if mode hasn't changed
+	if t.CurrentTLSMode == t.NewTLSMode {
+		return nil
 	}
+
+	t.Log.Info("Starting tls mode update in status", "tlsConfig", t.tlsConfigName, "old", t.CurrentTLSMode, "new", t.NewTLSMode)
+
+	tlsConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
+	err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{tlsConfig})
+	if err != nil {
+		t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
+		return err
+	}
+
 	return nil
 }
 

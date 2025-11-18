@@ -94,7 +94,7 @@ status:
     type: ClientServerTLSConfigUpdateFinished 
   - reason: Completed
     status: "False"
-    type: InterNodeTLSConfigUpdateFinished     
+    type: InterNodeTLSConfigUpdateInProgress
   - reason: Completed
     status: "False"
     type: TLSCertRollbackNeeded

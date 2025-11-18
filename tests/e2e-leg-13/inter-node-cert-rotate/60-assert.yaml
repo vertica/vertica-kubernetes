@@ -31,8 +31,8 @@ status:
     status: "True"
     type: DBInitialized
   - reason: Completed
-    status: "True"
-    type: InterNodeTLSConfigUpdateFinished 
+    status: "False"
+    type: InterNodeTLSConfigUpdateInProgress
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

@@ -105,7 +105,7 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 
 // updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
 // are nil. This is to handle the case where a user created a vdb with webhook
-// disabled and enabled field nil. In case the turn on the webhook later, we
+// disabled and enabled field nil. In case they turn on the webhook later, we
 // do not want it to alter the enabled field.
 func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 	if !h.Vdb.ShouldSetTLSEnabled() {
@@ -125,6 +125,10 @@ func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 		if h.Vdb.Spec.ClientServerTLS != nil && h.Vdb.Spec.ClientServerTLS.Enabled == nil {
 			enabled := true
 			h.Vdb.Spec.ClientServerTLS.Enabled = &enabled
+		}
+		if h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil {
+			enabled := true
+			h.Vdb.Spec.InterNodeTLS.Enabled = &enabled
 		}
 
 		return h.VRec.Client.Update(ctx, h.Vdb)

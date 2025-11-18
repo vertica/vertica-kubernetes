@@ -452,6 +452,10 @@ func MakeHTTPSNMATLSConfig(secret, mode string) *TLSConfigStatus {
 	return MakeTLSConfig(HTTPSNMATLSConfigName, secret, mode)
 }
 
+func MakeInterNodeTLSConfig(secret, mode string) *TLSConfigStatus {
+	return MakeTLSConfig(InterNodeTLSConfigName, secret, mode)
+}
+
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
 // revive_instance_id.
 func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
@@ -1682,6 +1686,12 @@ func (v *VerticaDB) IsInterNodeTLSAuthEnabled() bool {
 	return v.IsTLSAuthEnabledForConfig(InterNodeTLSConfigName)
 }
 
+// IsInterNodeTLSAuthEnabledForWebhook returns true if inter-node TLS auth is enabled
+// It is used only in the webhook to validate TLS config changes.
+func (v *VerticaDB) IsInterNodeTLSAuthEnabledForWebhook() bool {
+	return v.IsTLSAuthEnabledForConfigForWebhook(InterNodeTLSConfigName)
+}
+
 // IsAnyTLSAuthEnabled returns true if any TLS config is enabled
 func (v *VerticaDB) IsAnyTLSAuthEnabled() bool {
 	return v.IsHTTPSNMATLSAuthEnabled() || v.IsClientServerTLSAuthEnabled() || v.IsInterNodeTLSAuthEnabled()
@@ -1755,7 +1765,8 @@ func (v *VerticaDB) IsClientServerConfigEnabled() bool {
 // ShouldSetTLSEnabled returns true if a TLS config is defined but "enabled" is not set.
 func (v *VerticaDB) ShouldSetTLSEnabled() bool {
 	return (v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Enabled == nil) ||
-		(v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil)
+		(v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil) ||
+		(v.Spec.InterNodeTLS != nil && v.Spec.InterNodeTLS.Enabled == nil)
 }
 
 // IsValidVersionForTLS returns true if the server version
@@ -2517,13 +2528,11 @@ func (v *VerticaDB) ShouldSkipHTTPSTLSUpdateReconcile(isRollback bool) bool {
 }
 
 // ShouldSkipInterNodeTLSUpdateReconcile will check if TLS Update can be skipped for InterNode.
-// Note that condition logic for internode is reversed from clientServer/https, where
-// False = "rotation in progress" and True = "rotation complete"
 func (v *VerticaDB) ShouldSkipInterNodeTLSUpdateReconcile() bool {
 	return v.ShouldSkipTLSUpdateReconcile(
-		false,
+		false, // isRollback is not relevant, since we never need a second rollback rotate
 		!v.IsInterNodeTLSAuthEnabledWithMinVersion(),
-		v.IsStatusConditionFalse(InterNodeTLSConfigUpdateFinished),
+		v.IsStatusConditionTrue(InterNodeTLSConfigUpdateInProgress),
 	)
 }
 

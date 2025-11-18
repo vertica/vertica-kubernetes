@@ -1245,7 +1245,8 @@ const (
 	// HTTPSTLSConfigUpdateFinished indicates the HTTPS TLS config update has finished
 	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
-	InterNodeTLSConfigUpdateFinished    = "InterNodeTLSConfigUpdateFinished"
+	// InterNodeTLSConfigUpdateInProgress indicates the inter-node TLS config update is in progress
+	InterNodeTLSConfigUpdateInProgress = "InterNodeTLSConfigUpdateInProgress"
 	// TLSConfigUpdateInProgress indicates the TLS config update has started
 	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
