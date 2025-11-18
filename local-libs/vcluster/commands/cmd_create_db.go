@@ -204,7 +204,6 @@ func (c *CmdCreateDB) setSpreadlFlags(cmd *cobra.Command) {
 		"broadcast",
 		false,
 		"Configures Spread to use UDP broadcast traffic between nodes on the same subnet (default: disabled).\n"+
-			"Do not combine this option with --point-to-point.\n"+
 			"Up to 80 Spread daemons are supported by broadcast traffic. You can exceed the 80-node limit by using large cluster mode,\n"+
 			"which does not install a Spread daemon on each node.",
 	)
