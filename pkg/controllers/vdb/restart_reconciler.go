@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -228,7 +227,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if !vmeta.UseVClusterOps(r.Vdb.Annotations) && !r.PFacts.AreAllPodsRunning() {
+	if !r.Vdb.UseVClusterOpsDeployment() && !r.PFacts.AreAllPodsRunning() {
 		r.Log.Info("Not all pods are running. Cannot re-ip. Need to requeue")
 		return ctrl.Result{Requeue: true}, nil
 	}
