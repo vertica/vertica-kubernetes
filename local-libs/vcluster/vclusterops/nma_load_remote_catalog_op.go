@@ -94,7 +94,7 @@ func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationPa
 func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecContext) error {
 	if op.forInPlaceRevive && op.vdb == nil {
 		op.vdb = new(VCoordinationDatabase)
-		populateVdbFromNMACatalogEditor(op.vdb, &execContext.nmaVDatabase)
+		populateVdbFromNMAVdb(op.vdb, &execContext.nmaVDatabase)
 		for h := range execContext.nmaVDatabase.HostNodeMap {
 			op.hosts = append(op.hosts, h)
 		}

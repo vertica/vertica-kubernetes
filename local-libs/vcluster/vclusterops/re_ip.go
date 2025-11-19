@@ -214,28 +214,34 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		}
 	}
 
-	// if re-ip failed due to quorum check, run load Catalog from communal location on primary nodes
+	// cache NMA VDB for the extra steps
+	nmaVdb := clusterOpEngine.execContext.nmaVDatabase
+
+	// if re-ip failed due to quorum check, catalog rollback by loading remote catalog from communal storage on primary nodes
 	if clusterOpEngine.execContext.hasNoQuorum {
-		extraStepInstructions, err := vcc.produceExtraReIPInstructions(options, pVDB)
+		vcc.LogInfo("Quorum check failed, roll the catalog back by loading remote catalog from communal storage")
+
+		extraStepInstructions, err := vcc.produceExtraReIPInstructions(options, &nmaVdb)
 		if err != nil {
 			return fmt.Errorf("fail to produce extra instructions, %w", err)
 		}
-		extraStepclusterOpEngine := makeClusterOpEngine(extraStepInstructions, options)
+		extraStepsClusterOpEngine := makeClusterOpEngine(extraStepInstructions, options)
+		extraStepsClusterOpEngine.execContext.nmaVDatabase = nmaVdb
 
 		if options.SandboxName == util.MainClusterSandbox {
-			runError := extraStepclusterOpEngine.run(vcc.Log)
+			runError := extraStepsClusterOpEngine.run(vcc.Log)
 			if runError != nil {
 				return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
 			}
 		} else {
 			vcc.LogInfo("Extra steps of re-IP the sandbox", "sandbox", options.SandboxName)
-			runError := extraStepclusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
+			runError := extraStepsClusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
 			if runError != nil {
 				return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
 			}
 		}
 
-		runError := extraStepclusterOpEngine.run(vcc.Log)
+		runError := extraStepsClusterOpEngine.run(vcc.Log)
 		if runError != nil {
 			return fmt.Errorf("fail to reload catalog after losing quorum: %w", runError)
 		}
@@ -330,11 +336,15 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	return instructions, nil
 }
 
-// TODO: add comment
-func (vcc VClusterCommands) produceExtraReIPInstructions(options *VReIPOptions, vdb *VCoordinationDatabase) ([]clusterOp, error) {
+// produceExtraReIPInstructions generates additional instructions to handle cases where the quorum check fails
+func (vcc VClusterCommands) produceExtraReIPInstructions(options *VReIPOptions, nmaVdb *nmaVDatabase) ([]clusterOp, error) {
 	var instructions []clusterOp
 
-	oldHosts, newVdb := options.genNewVdb(vdb, vcc.Log)
+	var vdb VCoordinationDatabase
+	populateVdbFromNMAVdb(&vdb, nmaVdb)
+
+	// TODO: is genNewVdb needed???
+	oldHosts, newVdb := options.genNewVdb(&vdb, vcc.Log)
 	if len(oldHosts) != len(newVdb.HostList) {
 		return instructions, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
 	}
@@ -363,12 +373,12 @@ func (options *VReIPOptions) genNewVdb(vdb *VCoordinationDatabase, logger vlog.P
 	var oldHosts []string
 	for _, info := range options.ReIPList {
 		// update old IPs to new IPs
-		if node, ok := nodeHostMap[info.NodeName]; ok {
+		if node, exists := nodeHostMap[info.NodeName]; exists {
 			oldHosts = append(oldHosts, node.Address)
 			node.Address = info.TargetAddress
 			newVdb.HostNodeMap[info.TargetAddress] = node
 			newVdb.HostList = append(newVdb.HostList, info.TargetAddress)
-		} else if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+		} else if node, exists := vdb.HostNodeMap[info.NodeAddress]; exists {
 			oldHosts = append(oldHosts, node.Address)
 			node.Address = info.TargetAddress
 			newVdb.HostNodeMap[info.TargetAddress] = node
