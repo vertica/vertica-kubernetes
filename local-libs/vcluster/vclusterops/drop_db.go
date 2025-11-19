@@ -146,7 +146,7 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, usePassword,
-		options.UserName, options.Password, DropDB)
+		options.UserName, options.Password, DropDB, options.DBName)
 	if err != nil {
 		return instructions, err
 	}
