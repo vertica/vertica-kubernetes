@@ -123,6 +123,8 @@ const (
 	retainDepotDirFlag              = "retain-depot-directory"
 	useExistingDepotDirFlag         = "use-existing-depot-directory"
 	nodeNameToHostFlag              = "nodename-to-host"
+	epochFlag                       = "epoch"
+	epochKey                        = "epoch"
 )
 
 // Flag and key for database replication

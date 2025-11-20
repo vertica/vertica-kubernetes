@@ -59,7 +59,7 @@ func TestGetNodeInfoForEpoch(t *testing.T) {
 	}
 
 	hosts := []string{"192.168.1.101", "192.168.1.102"}
-	hostCatPathMap, err := getNodeInfoForEpoch(hosts, vdb)
+	hostCatPathMap, err := buildHostCatalogPathMap(hosts, vdb)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "/data/test_db/v_test_db_node0001_catalog", hostCatPathMap["192.168.1.101"])
@@ -67,14 +67,14 @@ func TestGetNodeInfoForEpoch(t *testing.T) {
 
 	// Test with missing host info
 	hosts = []string{"192.168.1.101", "192.168.1.103"} // 103 not in VDB
-	_, err = getNodeInfoForEpoch(hosts, vdb)
+	_, err = buildHostCatalogPathMap(hosts, vdb)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "host 192.168.1.103 has no saved info")
 
 	// Test with empty node name
 	vdb.HostNodeMap["192.168.1.101"].Name = ""
 	hosts = []string{"192.168.1.101"}
-	_, err = getNodeInfoForEpoch(hosts, vdb)
+	_, err = buildHostCatalogPathMap(hosts, vdb)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "host 192.168.1.101 has empty name")
 }

@@ -17,6 +17,7 @@ package vclusterops
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
@@ -52,6 +53,9 @@ type VStartDatabaseOptions struct {
 
 	// whether input info is read from vcluster config file, used for quorum check
 	ReadFromConfig bool
+
+	// epoch to start the database with, could be an integer or "last"
+	Epoch string
 }
 
 func VStartDatabaseOptionsFactory() VStartDatabaseOptions {
@@ -219,6 +223,14 @@ func (vcc VClusterCommands) runStartDBPrecheck(options *VStartDatabaseOptions, v
 		options.Hosts = vcc.removeHostsNotInCatalog(&clusterOpEngine.execContext.nmaVDatabase, options.Hosts)
 	}
 
+	// Epoch check
+	if options.Epoch != "" && !options.IsEon {
+		err := vcc.validateParseEpoch(options, vdb)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate and parse epoch in database pre-check: %w", err)
+		}
+	}
+
 	// Quorum Check
 	if options.ReadFromConfig && !options.IsEon {
 		err = vcc.quorumCheck(numTotalNodes, len(options.Hosts))
@@ -341,6 +353,16 @@ func (vcc VClusterCommands) produceStartDBInstructions(options *VStartDatabaseOp
 		nil /*sandbox name*/)
 
 	nmaStartNewNodesOp := makeNMAStartNodeOp(options.Hosts, options.StartUpConf)
+
+	// set epoch if provided
+	if options.Epoch != "" && !options.IsEon {
+		epochInt, err := strconv.ParseInt(options.Epoch, 10, 64)
+		if err != nil {
+			return instructions, fmt.Errorf("failed to convert epoch string to int: %w", err)
+		}
+		nmaStartNewNodesOp.setEpoch(epochInt)
+	}
+
 	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(options.Hosts,
 		options.usePassword, options.UserName, options.Password, options.StatePollingTimeout)
 	if err != nil {
@@ -374,6 +396,65 @@ func (vcc VClusterCommands) quorumCheck(numPrimaryNodes, numReachableHosts int) 
 	if numReachableHosts < minimumNodesForQuorum {
 		return fmt.Errorf("quorum not satisfied, number of reachable nodes %d < minimum %d of %d primary nodes",
 			numReachableHosts, minimumNodesForQuorum, numPrimaryNodes)
+	}
+	return nil
+}
+
+// takes the epoch user input and validates
+func (vcc VClusterCommands) checkValidEpochInput(userInput string) error {
+	parsedEpoch, err := strconv.Atoi(userInput)
+	if err != nil {
+		return fmt.Errorf("invalid epoch input %s: %w", userInput, err)
+	}
+
+	if parsedEpoch < 0 {
+		return fmt.Errorf("invalid epoch input %d, epoch must be non-negative", parsedEpoch)
+	}
+	return nil
+}
+
+// validate and parse the epoch input from user
+func (vcc VClusterCommands) validateParseEpoch(options *VStartDatabaseOptions, vdb *VCoordinationDatabase) error {
+	epochInfo, err := vcc.getEpochInfo(vdb, &options.DatabaseOptions, options.Hosts)
+	if err != nil {
+		return fmt.Errorf("failed to get epoch information: %w", err)
+	}
+
+	// calculate Last Good Epoch
+	defaultLastEpoch, err := vcc.calculateLastGoodEpoch(epochInfo, vcc.Log)
+	if err != nil {
+		return fmt.Errorf("failed to calculate last good epoch: %w", err)
+	}
+
+	if options.Epoch == "last" {
+		vcc.Log.Info("Using default last good epoch")
+		options.Epoch = strconv.FormatInt(defaultLastEpoch, 10)
+	} else {
+		// check whether the last epoch given by the user lies between the AHM and Last Good epoch.
+		// if the last epoch mentioned by the user does not lie within this range then an error is thrown
+
+		err := vcc.checkValidEpochInput(options.Epoch)
+		if err != nil {
+			return err
+		}
+
+		lastEpoch, err := strconv.ParseInt(options.Epoch, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid epoch input %s: %w", options.Epoch, err)
+		}
+
+		ahm, err := getLatestAncientHistoryMark(epochInfo)
+		if err != nil {
+			return fmt.Errorf("failed to get ancient history mark: %w", err)
+		}
+
+		if !(ahm <= lastEpoch && lastEpoch <= defaultLastEpoch) {
+			vcc.DisplayError("Invalid value for last good epoch %d."+
+				" Epoch number must be 'last' or between %d and %d inclusive.", lastEpoch, ahm, defaultLastEpoch)
+			return fmt.Errorf("invalid value for last good epoch %d: %w", lastEpoch, err)
+		}
+
+		options.Epoch = strconv.FormatInt(lastEpoch, 10)
 	}
 	return nil
 }
