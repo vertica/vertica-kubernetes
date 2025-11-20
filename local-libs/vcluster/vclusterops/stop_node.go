@@ -28,6 +28,8 @@ type VStopNodeOptions struct {
 	DatabaseOptions
 	// Hosts to stop
 	StopHosts []string
+	// Whether to force kill nodes using SIGKILL
+	ForceKill bool
 	// timeout for polling nodes that we want to wait in httpsPollNodeStopeOp
 	StopPollingTimeout int
 }
@@ -42,6 +44,7 @@ func VStopNodeOptionsFactory() VStopNodeOptions {
 
 func (options *VStopNodeOptions) setDefaultValues() {
 	options.DatabaseOptions.setDefaultValues()
+	options.ForceKill = false
 	// set time out from env variable
 	options.StopPollingTimeout = util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultStatePollingTimeout)
 }
@@ -93,6 +96,7 @@ func (options *VStopNodeOptions) validateAnalyzeOptions(logger vlog.Printer) err
 }
 
 // VStopNode stops a host in an existing database.
+// Uses SIGTERM by default, or SIGKILL if ForceKill is true.
 // It returns any error encountered.
 func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 	vdb := makeVCoordinationDatabase()
@@ -122,7 +126,15 @@ func (vcc VClusterCommands) VStopNode(options *VStopNodeOptions) error {
 		return err
 	}
 
-	instructions, err := vcc.produceStopNodeInstructions(&vdb, options)
+	var instructions []clusterOp
+	if options.ForceKill {
+		// Force kill path: Use SIGKILL for all nodes
+		instructions, err = vcc.produceForceKillInstructions(&vdb, options)
+	} else {
+		// Graceful stop path: Use HTTPS for core, SIGTERM for compute nodes
+		instructions, err = vcc.produceStopNodeInstructions(&vdb, options)
+	}
+
 	if err != nil {
 		return fmt.Errorf("fail to produce stop node instructions, %w", err)
 	}
@@ -258,4 +270,54 @@ func (vcc VClusterCommands) produceStopComputeNodeOps(instructions *[]clusterOp,
 		&nmaSigTermNodeOp,
 	)
 	return nil
+}
+
+// produceForceKillInstructions will build a list of instructions to execute for
+// the force kill node operation using SIGKILL.
+//
+// The generated instructions will later perform the following operations necessary
+// for a successful force kill node operation:
+//   - Check NMA health
+//   - Force kill nodes via SIGKILL
+//   - Poll node state down
+func (vcc VClusterCommands) produceForceKillInstructions(vdb *VCoordinationDatabase,
+	options *VStopNodeOptions) ([]clusterOp, error) {
+	var instructions []clusterOp
+
+	username := options.UserName
+	usePassword := options.usePassword
+	password := options.Password
+
+	// Check NMA health first before sending kill signals
+	nmaHealthOp := makeNMAHealthOp(options.StopHosts)
+	instructions = append(instructions, &nmaHealthOp)
+
+	// Build catalog path map for ALL hosts
+	hostCatPathMap := make(map[string]string, len(options.StopHosts))
+	for _, host := range options.StopHosts {
+		if vnode, exists := vdb.HostNodeMap[host]; exists {
+			hostCatPathMap[host] = vnode.CatalogPath
+		}
+	}
+
+	// Use SIGKILL for ALL nodes (core and compute)
+	nmaSigKillNodeOp, err := makeNMASigKillVerticaOp(
+		options.StopHosts,
+		hostCatPathMap,
+		false)
+
+	if err != nil {
+		return instructions, err
+	}
+	instructions = append(instructions, &nmaSigKillNodeOp)
+
+	// Poll for nodes down
+	httpsPollNodesDown, err := makeHTTPSPollNodeStateDownOp(options.StopHosts,
+		usePassword, username, password)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions, &httpsPollNodesDown)
+	return instructions, nil
 }
