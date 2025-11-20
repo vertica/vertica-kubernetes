@@ -220,14 +220,14 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 			return err
 		}
 	}
-	secret, cert, err := h.createNewSecret(ctx, secretFieldName, secretName)
+	secret, err := h.createNewSecret(ctx, secretFieldName, secretName)
 	if err != nil {
 		return err
 	}
 
 	// Validate the newly generated certificate before setting it in the VDB
 	if secretFieldName != nmaTLSSecret {
-		err = h.ValidateCertificateData(ctx, cert.TLSCrt(), cert.TLSKey(), tlsConfigName, secret.Name)
+		err = h.ValidateCertificateData(ctx, secret, tlsConfigName)
 		if err != nil {
 			h.Log.Error(err, "failed to validate newly generated certificate", "secretName", secret.Name)
 			return err
@@ -239,20 +239,20 @@ func (h *TLSServerCertGenReconciler) reconcileOneSecret(secretFieldName, secretN
 }
 
 func (h *TLSServerCertGenReconciler) createNewSecret(ctx context.Context, secretFieldName,
-	secretName string) (*corev1.Secret, security.Certificate, error) {
+	secretName string) (*corev1.Secret, error) {
 	caCert, err := security.NewSelfSignedCACertificate()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	cert, err := security.NewCertificate(caCert, h.Vdb.GetVerticaUser(), h.getDNSNames())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	secret, err := h.createSecret(secretFieldName, secretName, ctx, cert, caCert)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return secret, cert, nil
+	return secret, nil
 }
 
 // getDNSNames returns the DNS names to include in the certificate that we generate
@@ -332,17 +332,18 @@ func (h *TLSServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, sec
 	})
 }
 
-// ValidateCertificateData validates certificate data (PEM encoded cert and key).
-// This function performs validation on the certificate without retrieving it from k8s.
+// ValidateCertificateData validates certificate data from a secret.
+// This function performs validation on the certificate by extracting data from the secret.
 // If certificate is expiring soon, alert user.
 func (h *TLSServerCertGenReconciler) ValidateCertificateData(
 	ctx context.Context,
-	certPEM []byte,
-	keyPEM []byte,
+	secret *corev1.Secret,
 	tlsConfigName string,
-	secretName string,
 ) error {
-	h.Log.Info("validating TLS certificate data", "secretName", secretName)
+	h.Log.Info("validating TLS certificate data", "secretName", secret.Name)
+
+	certPEM := secret.Data[TLSCertName]
+	keyPEM := secret.Data[TLSKeyName]
 
 	if certPEM == nil {
 		return errors.New("failed to decode PEM block containing certificate")
@@ -353,7 +354,7 @@ func (h *TLSServerCertGenReconciler) ValidateCertificateData(
 
 	err := security.ValidateTLSSecret(certPEM, keyPEM)
 	if err != nil {
-		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secretName, err)
+		err1 := h.InvalidCertRollback(ctx, "Validation of TLS Certificate %q failed with secret %q", tlsConfigName, secret.Name, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 			return err1
 		}
@@ -363,7 +364,7 @@ func (h *TLSServerCertGenReconciler) ValidateCertificateData(
 	err = security.ValidateCertificateCommonName(certPEM, h.Vdb.GetExpectedCertCommonName(tlsConfigName))
 	if err != nil {
 		err1 := h.InvalidCertRollback(ctx, "Validation of common name for TLS Certificate %q failed with secret %q",
-			tlsConfigName, secretName, err)
+			tlsConfigName, secret.Name, err)
 		if err1 != nil || h.Vdb.IsTLSCertRollbackNeeded() {
 			return err1
 		}
@@ -380,7 +381,7 @@ func (h *TLSServerCertGenReconciler) ValidateCertificateData(
 		h.Log.Info("certificate is nearing expiration, consider regenerating", "expiresAt", expireTime.UTC().Format(time.RFC3339)+" UTC")
 	}
 
-	h.Log.Info("successfully completed validating TLS certificate data", "secretName", secretName)
+	h.Log.Info("successfully completed validating TLS certificate data", "secretName", secret.Name)
 	return nil
 }
 
@@ -406,11 +407,8 @@ func (h *TLSServerCertGenReconciler) ValidateSecretCertificate(
 		return err
 	}
 
-	certPEM := secret.Data[TLSCertName]
-	keyPEM := secret.Data[TLSKeyName]
-
 	// Delegate to ValidateCertificateData for the actual validation
-	return h.ValidateCertificateData(ctx, certPEM, keyPEM, tlsConfigName, secretName)
+	return h.ValidateCertificateData(ctx, secret, tlsConfigName)
 }
 
 // ShouldGenerateCert determines whether generating TLS server certificates should run at all.
