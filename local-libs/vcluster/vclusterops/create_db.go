@@ -434,7 +434,7 @@ func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 	}
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, true, /* use password auth */
-		options.UserName, options.Password, CreateDB)
+		options.UserName, options.Password, CreateDB, options.DBName)
 	if err != nil {
 		return instructions, err
 	}
@@ -596,7 +596,7 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 
 	if !options.SkipPackageInstall {
 		httpsInstallPackagesOp, err := makeHTTPSInstallPackagesOp(bootstrapHost, true, username, options.Password,
-			false /* forceReinstall */, true /* verbose */)
+			false /* forceReinstall */, util.PkgFilterDefault /* packageFilter */, true /* verbose */)
 		if err != nil {
 			return instructions, err
 		}
