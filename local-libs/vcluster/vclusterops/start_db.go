@@ -271,7 +271,7 @@ func (vcc VClusterCommands) produceStartDBPreCheck(options *VStartDatabaseOption
 	}
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(options.Hosts,
-		options.usePassword, options.UserName, options.Password, StartDB)
+		options.usePassword, options.UserName, options.Password, StartDB, options.DBName)
 	if err != nil {
 		return instructions, err
 	}
