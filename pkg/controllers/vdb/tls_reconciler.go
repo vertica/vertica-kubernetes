@@ -59,7 +59,6 @@ func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (c
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsMainClusterStopped() {
 		return ctrl.Result{}, nil
 	}
-
 	actors := []controllers.ReconcileActor{}
 	// when we first set tls config and nma tls secret is different than https tls secret,
 	// we need to restart nma
@@ -97,14 +96,16 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 		MakeNMACertConfigMapReconciler(h.VRec, log, vdb),
 		// rotate nma tls cert only if clientServer secret name is changed in vdb.spec
 		MakeNMACertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts, false),
-		// rollback, in case of failure, any cert rotation op related to https or client-server TLS
+		// update inter node tls by setting the tls config, rotating the cert and/or changing tls mode
+		MakeInterNodeTLSUpdateReconciler(h.VRec, log, vdb, dispatcher, pfacts),
+		// rollback, in case of failure, any cert rotation op related to https or client-server or inter-node TLS
 		MakeRollbackAfterCertRotationReconciler(h.VRec, log, vdb, dispatcher, pfacts),
 	}
 }
 
 // updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
 // are nil. This is to handle the case where a user created a vdb with webhook
-// disabled and enabled field nil. In case the turn on the webhook later, we
+// disabled and enabled field nil. In case they turn on the webhook later, we
 // do not want it to alter the enabled field.
 func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 	if !h.Vdb.ShouldSetTLSEnabled() {
@@ -124,6 +125,10 @@ func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 		if h.Vdb.Spec.ClientServerTLS != nil && h.Vdb.Spec.ClientServerTLS.Enabled == nil {
 			enabled := true
 			h.Vdb.Spec.ClientServerTLS.Enabled = &enabled
+		}
+		if h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil {
+			enabled := true
+			h.Vdb.Spec.InterNodeTLS.Enabled = &enabled
 		}
 
 		return h.VRec.Client.Update(ctx, h.Vdb)

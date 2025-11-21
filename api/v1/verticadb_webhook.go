@@ -2946,12 +2946,17 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 // 2. Cannot disable mutual TLS after it's enabled.
 // 3. Cannot change a secret to empty string.
 // 4. Prevent user from changing nmaTLSSecret.
+//
+//nolint:gocyclo
 func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	specFld := field.NewPath("spec")
 
 	// Rule 1: Disallow any changes while a TLS config update is in progress, except for TLS config updates themselves.
 	if oldObj.IsTLSConfigUpdateInProgress() && !v.isOnlyTLSConfigUpdateChange(oldObj) {
 		return append(allErrs, field.Forbidden(specFld, "no changes allowed while TLS config update is in progress"))
+	}
+	if oldObj.IsInterNodeTLSConfigUpdateInProgress() && !v.isOnlyTLSConfigUpdateChange(oldObj) {
+		return append(allErrs, field.Forbidden(specFld, "no changes allowed while inter-node TLS config update is in progress"))
 	}
 
 	// Rule 2: TLS Auth transition restrictions
@@ -3000,6 +3005,10 @@ func (v *VerticaDB) checkValidTLSEnabled(oldObj *VerticaDB, allErrs field.ErrorL
 		allErrs = append(allErrs, field.Forbidden(specFld.Child("clientServerTLS"),
 			"clientServerTLS cannot be disabled after it's enabled"))
 	}
+	if oldObj.IsInterNodeTLSAuthEnabledForWebhook() && !v.IsInterNodeTLSAuthEnabledForWebhook() {
+		allErrs = append(allErrs, field.Forbidden(specFld.Child("interNodeTLS"),
+			"interNodeTLS cannot be disabled after it's enabled"))
+	}
 
 	return allErrs
 }
@@ -3008,6 +3017,7 @@ func (v *VerticaDB) checkValidTLSEnabled(oldObj *VerticaDB, allErrs field.ErrorL
 func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	isHTTPSNMANil := oldObj.Spec.HTTPSNMATLS == nil || v.Spec.HTTPSNMATLS == nil
 	isClientServerTLSNil := oldObj.Spec.ClientServerTLS == nil || v.Spec.ClientServerTLS == nil
+	isInterNodeTLSNil := oldObj.Spec.InterNodeTLS == nil || v.Spec.InterNodeTLS == nil
 
 	if !isHTTPSNMANil && oldObj.Spec.HTTPSNMATLS.Mode != v.Spec.HTTPSNMATLS.Mode &&
 		oldObj.GetHTTPSNMATLSMode() == v.GetHTTPSNMATLSMode() {
@@ -3022,6 +3032,14 @@ func (v *VerticaDB) checkTLSModeCaseInsensitiveChange(oldObj *VerticaDB, allErrs
 		fieldPath := field.NewPath("spec").Child("clientServerTLS").Child("mode")
 		err := field.Invalid(fieldPath, v.Spec.ClientServerTLS.Mode,
 			"case insensitive mode change is not allowed for clientServerTLS")
+		allErrs = append(allErrs, err)
+	}
+
+	if !isInterNodeTLSNil && oldObj.Spec.InterNodeTLS.Mode != v.Spec.InterNodeTLS.Mode &&
+		oldObj.GetInterNodeTLSMode() == v.GetInterNodeTLSMode() {
+		fieldPath := field.NewPath("spec").Child("interNodeTLS").Child("mode")
+		err := field.Invalid(fieldPath, v.Spec.InterNodeTLS.Mode,
+			"case insensitive mode change is not allowed for interNodeTLS")
 		allErrs = append(allErrs, err)
 	}
 
@@ -3075,6 +3093,8 @@ func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
 	newCopy.HTTPSNMATLS = nil
 	oldCopy.ClientServerTLS = nil
 	newCopy.ClientServerTLS = nil
+	oldCopy.InterNodeTLS = nil
+	newCopy.InterNodeTLS = nil
 
 	return reflect.DeepEqual(oldCopy, newCopy)
 }
@@ -3171,36 +3191,37 @@ func (v *VerticaDB) setDefaultProxy() {
 }
 
 // setDefaultTLSEnabled sets the default value of Enabled field to true if the user
-// has specified HTTPSNMATLS or ClientServerTLS but did not set the Enabled field.
+// has specified HTTPSNMATLS, ClientServerTLS, or InterNodeTLS but did not set the Enabled field.
 func (v *VerticaDB) setDefaultTLSEnabled() {
-	if v.Spec.HTTPSNMATLS == nil && v.Spec.ClientServerTLS == nil {
+	if v.Spec.HTTPSNMATLS == nil && v.Spec.ClientServerTLS == nil && v.Spec.InterNodeTLS == nil {
 		return
 	}
 	if v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Enabled == nil {
-		enable := true
-		if v.IsDBInitialized() {
-			enable = vmeta.UseTLSAuth(v.Annotations)
-		}
-		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
-			enable = false
-		}
-		v.Spec.HTTPSNMATLS.Enabled = &enable
+		v.Spec.HTTPSNMATLS.Enabled = v.getDefaultEnabledValue()
 	}
 	if v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Enabled == nil {
-		enable := true
-		if v.IsDBInitialized() {
-			// if the db is initialized, we follow the annotation to set the default value
-			// of Enabled field. This is useful to catch the case where the user has upgraded
-			// from an older operator version that does not have the Enabled field.
-			// We want to respect the annotation in this case. This is not a problem for
-			// new vdbs because a default value of true is set in the webhook.
-			enable = vmeta.UseTLSAuth(v.Annotations)
-		}
-		if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
-			enable = false
-		}
-		v.Spec.ClientServerTLS.Enabled = &enable
+		v.Spec.ClientServerTLS.Enabled = v.getDefaultEnabledValue()
 	}
+	if v.Spec.InterNodeTLS != nil && v.Spec.InterNodeTLS.Enabled == nil {
+		v.Spec.InterNodeTLS.Enabled = v.getDefaultEnabledValue()
+	}
+}
+
+// getDefaultEnabledValue returns the default value for TLS Enabled field based on annotations and DB state
+func (v *VerticaDB) getDefaultEnabledValue() *bool {
+	enable := true
+	if v.IsDBInitialized() {
+		// if the db is initialized, we follow the annotation to set the default value
+		// of Enabled field. This is useful to catch the case where the user has upgraded
+		// from an older operator version that does not have the Enabled field.
+		// We want to respect the annotation in this case. This is not a problem for
+		// new vdbs because a default value of true is set in the webhook.
+		enable = vmeta.UseTLSAuth(v.Annotations)
+	}
+	if vmeta.ShouldSetDefaultTLSEnabledToFalse(v.Annotations) {
+		enable = false
+	}
+	return &enable
 }
 
 // checkIfAnyOpInProgressWhenRotatingCerts checks if any operation is in progress when enabling tls auth

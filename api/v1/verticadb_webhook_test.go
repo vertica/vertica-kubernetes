@@ -2680,23 +2680,46 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 
 	It("should forbid changes when TLS config update is in progress", func() {
-		oldVdb := MakeVDBForCertRotationEnabled()
-		oldVdb.Status.Conditions = append(oldVdb.Status.Conditions, metav1.Condition{
-			Type:   TLSConfigUpdateInProgress,
-			Status: metav1.ConditionTrue,
-		})
-		newVdb := oldVdb.DeepCopy()
-		// Only TLS config fields changed: allowed
-		newVdb.Spec.HTTPSNMATLS.Secret = newSecret
-		allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Ω(allErrs).Should(BeEmpty())
+		testCases := []struct {
+			conditionType     string
+			updateField       func(*VerticaDB)
+			expectedErrSubstr string
+		}{
+			{
+				conditionType: TLSConfigUpdateInProgress,
+				updateField: func(vdb *VerticaDB) {
+					vdb.Spec.HTTPSNMATLS.Secret = newSecret
+				},
+				expectedErrSubstr: "no changes allowed while TLS config update is in progress",
+			},
+			{
+				conditionType: InterNodeTLSConfigUpdateInProgress,
+				updateField: func(vdb *VerticaDB) {
+					vdb.Spec.InterNodeTLS.Secret = newSecret
+				},
+				expectedErrSubstr: "no changes allowed while inter-node TLS config update is in progress",
+			},
+		}
 
-		// Other field changed: forbidden
-		newVdb = oldVdb.DeepCopy()
-		newVdb.Spec.Image = "vertica:latest"
-		allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
-		Ω(allErrs).ShouldNot(BeEmpty())
-		Ω(allErrs[0].Error()).Should(ContainSubstring("no changes allowed while TLS config update is in progress"))
+		for _, tc := range testCases {
+			oldVdb := MakeVDBForCertRotationEnabled()
+			oldVdb.Status.Conditions = append(oldVdb.Status.Conditions, metav1.Condition{
+				Type:   tc.conditionType,
+				Status: metav1.ConditionTrue,
+			})
+			newVdb := oldVdb.DeepCopy()
+			// Only TLS config fields changed: allowed
+			tc.updateField(newVdb)
+			allErrs := newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+			Ω(allErrs).Should(BeEmpty())
+
+			// Other field changed: forbidden
+			newVdb = oldVdb.DeepCopy()
+			newVdb.Spec.Image = "vertica:latest"
+			allErrs = newVdb.checkValidTLSConfigUpdate(oldVdb, nil)
+			Ω(allErrs).ShouldNot(BeEmpty())
+			Ω(allErrs[0].Error()).Should(ContainSubstring(tc.expectedErrSubstr))
+		}
 	})
 
 	It("should call checkDisallowedMutualTLSChanges when mutual TLS is not enabled", func() {

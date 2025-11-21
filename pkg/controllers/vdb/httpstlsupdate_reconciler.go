@@ -86,10 +86,6 @@ func (h *HTTPSTLSUpdateReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		return rec.Reconcile(ctx, req)
 	}
 
-	if !h.Vdb.IsHTTPSConfigEnabled() {
-		return ctrl.Result{}, nil
-	}
-
 	// no-op if neither https secret nor tls mode
 	// changed
 	if !h.Manager.needTLSConfigChange() {

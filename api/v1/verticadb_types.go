@@ -311,6 +311,11 @@ type VerticaDBSpec struct {
 	// Identifies Client-Server TLS configuration
 	ClientServerTLS *TLSConfigSpec `json:"clientServerTLS,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +kubebuilder:validation:Optional
+	// Identifies InterNode TLS configuration
+	InterNodeTLS *TLSConfigSpec `json:"interNodeTLS,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
 	// Allows tuning of the Vertica pods readiness probe. Each of the values
@@ -1117,6 +1122,7 @@ const (
 	NMATLSConfigName          = "nma"          // #nosec G101
 	HTTPSNMATLSConfigName     = "httpsNMA"     // #nosec G101
 	ClientServerTLSConfigName = "clientServer" // #nosec G101
+	InterNodeTLSConfigName    = "interNode"    // #nosec G101
 )
 
 type LicenseStatus struct {
@@ -1239,6 +1245,8 @@ const (
 	// HTTPSTLSConfigUpdateFinished indicates the HTTPS TLS config update has finished
 	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"
+	// InterNodeTLSConfigUpdateInProgress indicates the inter-node TLS config update is in progress
+	InterNodeTLSConfigUpdateInProgress = "InterNodeTLSConfigUpdateInProgress"
 	// TLSConfigUpdateInProgress indicates the TLS config update has started
 	TLSConfigUpdateInProgress = "TLSConfigUpdateInProgress"
 	// TLSCertRollbackNeeded indicates tls cert rotation failed and we need
@@ -1260,6 +1268,8 @@ const (
 	RollbackAfterServerCertRotationReason = "ServerCertRotationFailed"
 	// RollbackAfterNMACertRotationReason indicates failure during NMA cert rotation
 	RollbackAfterNMACertRotationReason = "NMACertRotationFailed"
+	// RollbackAfterInterNodeCertRotationReason indicates failure during internode cert rotation
+	RollbackAfterInterNodeCertRotationReason = "InterNodeCertRotationFailed"
 )
 
 const (

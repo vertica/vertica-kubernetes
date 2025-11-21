@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Starting Internode TLS cert rollback after failed update
+---
+apiVersion: v1
+kind: Event
+reason: TLSCertRollbackSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Internode TLS cert rollback completed successfully
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-auto-cert-rotate
+message: Successfully rotated Internode tls cert with secret name cert3 and mode try_verify
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-auto-cert-rotate
+status:
+  tlsConfigs:
+  - name: httpsNMA
+  - name: clientServer
+  - name: interNode
+    secret: cert3
+    autoRotateSecrets:
+    - cert1
+    - cert2
+    - cert3

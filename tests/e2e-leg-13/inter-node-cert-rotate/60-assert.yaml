@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-inter-node-cert-rotate
+---
+apiVersion: v1
+kind: Event
+reason: InterNodeTLSUpdateSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-inter-node-cert-rotate
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-inter-node-cert-rotate
+status:
+  conditions:
+  - reason: Detected
+    status: "True"
+    type: AutoRestartVertica
+  - reason: Initialized
+    status: "True"
+    type: DBInitialized
+  - reason: Completed
+    status: "False"
+    type: InterNodeTLSConfigUpdateInProgress
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+  
