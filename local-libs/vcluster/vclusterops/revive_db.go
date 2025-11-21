@@ -308,7 +308,7 @@ func (vcc VClusterCommands) producePreReviveDBInstructions(options *VReviveDatab
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(options.Hosts, false, /*use password auth*/
-		"" /*username for https call*/, nil /*password for https call*/, ReviveDB, options.DBName)
+		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
 	if err != nil {
 		return instructions, err
 	}

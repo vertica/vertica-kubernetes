@@ -74,6 +74,7 @@ Examples:
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
+	newCmd.setHiddenFlags(cmd)
 
 	// require re-ip-file
 	markFlagsRequired(cmd, reIPFileFlag)
@@ -103,6 +104,18 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 		-1,
 		"K-safety value for the database. Set to 0 to bypass quorum checks.",
 	)
+}
+
+// setHiddenFlags will set the hidden flags the command has.
+// The hidden flag will not be shown in help and usage of the command, and they will be used internally.
+func (c *CmdReIP) setHiddenFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(
+		&c.reIPOptions.ForceLoadRemoteCatalog,
+		forceLoadRemoteCatalog,
+		false,
+		"",
+	)
+	hideLocalFlags(cmd, []string{forceLoadRemoteCatalog})
 }
 
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {

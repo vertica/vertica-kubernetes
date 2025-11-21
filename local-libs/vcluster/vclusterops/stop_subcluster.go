@@ -195,8 +195,7 @@ func (vcc *VClusterCommands) produceStopSCInstructions(options *VStopSubclusterO
 		return instructions, err
 	}
 
-	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOpWithoutHosts(usePassword, options.UserName,
-		options.Password, StopSC, options.DBName)
+	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBOpWithoutHosts(usePassword, options.UserName, options.Password, StopSC)
 	if err != nil {
 		return instructions, err
 	}

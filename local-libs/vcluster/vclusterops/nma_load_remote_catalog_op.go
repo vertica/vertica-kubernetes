@@ -94,7 +94,7 @@ func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationPa
 func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecContext) error {
 	if op.forInPlaceRevive && op.vdb == nil {
 		op.vdb = new(VCoordinationDatabase)
-		populateVdbFromNMACatalogEditor(op.vdb, &execContext.nmaVDatabase)
+		populateVdbFromNMAVdb(op.vdb, &execContext.nmaVDatabase)
 		for h := range execContext.nmaVDatabase.HostNodeMap {
 			op.hosts = append(op.hosts, h)
 		}
@@ -149,6 +149,8 @@ func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecCont
 		op.hostRequestBodyMap[host] = string(dataBytes)
 	}
 
+	fmt.Println("BBBBBBBBB", op.hostRequestBodyMap)
+
 	return nil
 }
 
@@ -191,12 +193,14 @@ func (op *nmaLoadRemoteCatalogOp) finalize(_ *opEngineExecContext) error {
 	return nil
 }
 
-func (op *nmaLoadRemoteCatalogOp) processResult(e *opEngineExecContext) error {
+func (op *nmaLoadRemoteCatalogOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
 	var successPrimaryNodeCount uint
-	if !e.hasNoQuorum && op.forInPlaceRevive {
-		return nil
-	}
+	// TODO: handle this part
+	// if !e.hasNoQuorum && op.forInPlaceRevive {
+	// 	fmt.Println("CCCCCCCCCCC")
+	// 	return nil
+	// }
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
