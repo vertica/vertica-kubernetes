@@ -2946,12 +2946,17 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 // 2. Cannot disable mutual TLS after it's enabled.
 // 3. Cannot change a secret to empty string.
 // 4. Prevent user from changing nmaTLSSecret.
+//
+//nolint:gocyclo
 func (v *VerticaDB) checkValidTLSConfigUpdate(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	specFld := field.NewPath("spec")
 
 	// Rule 1: Disallow any changes while a TLS config update is in progress, except for TLS config updates themselves.
 	if oldObj.IsTLSConfigUpdateInProgress() && !v.isOnlyTLSConfigUpdateChange(oldObj) {
 		return append(allErrs, field.Forbidden(specFld, "no changes allowed while TLS config update is in progress"))
+	}
+	if oldObj.IsInterNodeTLSConfigUpdateInProgress() && !v.isOnlyTLSConfigUpdateChange(oldObj) {
+		return append(allErrs, field.Forbidden(specFld, "no changes allowed while inter-node TLS config update is in progress"))
 	}
 
 	// Rule 2: TLS Auth transition restrictions
@@ -3088,6 +3093,8 @@ func (v *VerticaDB) isOnlyTLSConfigUpdateChange(oldVdb *VerticaDB) bool {
 	newCopy.HTTPSNMATLS = nil
 	oldCopy.ClientServerTLS = nil
 	newCopy.ClientServerTLS = nil
+	oldCopy.InterNodeTLS = nil
+	newCopy.InterNodeTLS = nil
 
 	return reflect.DeepEqual(oldCopy, newCopy)
 }

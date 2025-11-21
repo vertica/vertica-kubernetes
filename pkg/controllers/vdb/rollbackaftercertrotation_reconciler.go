@@ -83,9 +83,9 @@ func (r *RollbackAfterCertRotationReconciler) Reconcile(ctx context.Context, _ *
 	funcs := []func(context.Context) (ctrl.Result, error){
 		r.runHTTPSCertRotation,
 		r.resetTLSUpdateCondition,
+		r.resetInterNodeInProgressCondition,
 		r.setAutoRotateStatus,
 		r.updateTLSConfigInVdb,
-		r.resetInterNodeInProgressCondition,
 		r.cleanUpRollbackConditions,
 	}
 

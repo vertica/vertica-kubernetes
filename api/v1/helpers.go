@@ -125,6 +125,12 @@ func SetVDBForTLS(v *VerticaDB) {
 	} else {
 		v.Spec.HTTPSNMATLS.Enabled = BoolPtr(true)
 	}
+
+	if v.Spec.InterNodeTLS == nil {
+		v.Spec.InterNodeTLS = &TLSConfigSpec{Enabled: BoolPtr(true)}
+	} else {
+		v.Spec.InterNodeTLS.Enabled = BoolPtr(true)
+	}
 }
 
 func SetVDBWithHTTPSTLSConfigSet(v *VerticaDB, secretName string) {
@@ -727,6 +733,10 @@ func (v *VerticaDB) IsUpgradeInProgress() bool {
 
 func (v *VerticaDB) IsTLSConfigUpdateInProgress() bool {
 	return v.IsStatusConditionTrue(TLSConfigUpdateInProgress)
+}
+
+func (v *VerticaDB) IsInterNodeTLSConfigUpdateInProgress() bool {
+	return v.IsStatusConditionTrue(InterNodeTLSConfigUpdateInProgress)
 }
 
 func (v *VerticaDB) IsTLSCertRollbackNeeded() bool {
