@@ -83,21 +83,19 @@ type httpsCheckRunningDBOp struct {
 	opBase
 	opHTTPSBase
 	opType      opType
-	dbName      string // database name for better error messages
 	sandbox     string // check if DB is running on specified sandbox
 	mainCluster bool   // check if DB is running on the main cluster.
 }
 
 func makeHTTPSCheckRunningDBOp(hosts []string,
 	useHTTPPassword bool, userName string,
-	httpsPassword *string, operationType opType, dbName string,
+	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
 	op.name = checkDBRunningOpName
 	op.description = checkDBRunningOpDesc
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
-	op.dbName = dbName
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
 		return op, err
@@ -106,34 +104,22 @@ func makeHTTPSCheckRunningDBOp(hosts []string,
 	op.userName = userName
 	op.httpsPassword = httpsPassword
 	op.opType = operationType
-	// Update description based on operation type and database name
-	if op.dbName != "" {
-		if op.opType == StartDB || op.opType == ReviveDB {
-			op.description = fmt.Sprintf("Verify database %s is not running", op.dbName)
-		} else {
-			op.description = fmt.Sprintf("Verify database %s is running", op.dbName)
-		}
-	} else {
-		// Fallback to old behavior when dbName is not provided
-		if op.opType == StartDB || op.opType == ReviveDB {
-			op.description = checkDBNotRunningOpDesc
-		} else {
-			op.description = checkDBRunningOpDesc
-		}
+	if op.opType == StopDB {
+		op.description = checkDBNotRunningOpDesc
 	}
 	return op, nil
 }
 
 func makeHTTPSCheckRunningDBOpWithoutHosts(useHTTPPassword bool, userName string,
-	httpsPassword *string, operationType opType, dbName string) (httpsCheckRunningDBOp, error) {
-	return makeHTTPSCheckRunningDBOp(nil, useHTTPPassword, userName, httpsPassword, operationType, dbName)
+	httpsPassword *string, operationType opType) (httpsCheckRunningDBOp, error) {
+	return makeHTTPSCheckRunningDBOp(nil, useHTTPPassword, userName, httpsPassword, operationType)
 }
 
 func makeHTTPSCheckRunningDBWithSandboxOp(hosts []string,
 	useHTTPPassword bool, userName string, sandbox string, mainCluster bool,
-	httpsPassword *string, operationType opType, dbName string,
+	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
-	op, err := makeHTTPSCheckRunningDBOp(hosts, useHTTPPassword, userName, httpsPassword, operationType, dbName)
+	op, err := makeHTTPSCheckRunningDBOp(hosts, useHTTPPassword, userName, httpsPassword, operationType)
 	if err != nil {
 		return op, err
 	}

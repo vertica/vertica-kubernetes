@@ -90,7 +90,7 @@ func updateCatalogPathMapFromCatalogEditor(hosts []string, nmaVDB *nmaVDatabase,
 }
 
 // populate vdb from nmaVdb
-func populateVdbFromNMACatalogEditor(vdb *VCoordinationDatabase, nmaVdb *nmaVDatabase) {
+func populateVdbFromNMAVdb(vdb *VCoordinationDatabase, nmaVdb *nmaVDatabase) {
 	vdb.Name = nmaVdb.Name
 	vdb.CommunalStorageLocation = nmaVdb.CommunalStorageLocation
 	vdb.HostNodeMap = make(map[string]*VCoordinationNode)

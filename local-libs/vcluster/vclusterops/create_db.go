@@ -434,7 +434,7 @@ func (vcc VClusterCommands) produceCreateDBBootstrapInstructions(
 	}
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, true, /* use password auth */
-		options.UserName, options.Password, CreateDB, options.DBName)
+		options.UserName, options.Password, CreateDB)
 	if err != nil {
 		return instructions, err
 	}
