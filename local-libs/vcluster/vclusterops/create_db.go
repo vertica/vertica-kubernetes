@@ -596,7 +596,7 @@ func (vcc VClusterCommands) produceAdditionalCreateDBInstructions(vdb *VCoordina
 
 	if !options.SkipPackageInstall {
 		httpsInstallPackagesOp, err := makeHTTPSInstallPackagesOp(bootstrapHost, true, username, options.Password,
-			false /* forceReinstall */, true /* verbose */)
+			false /* forceReinstall */, util.PkgFilterDefault /* packageFilter */, true /* verbose */)
 		if err != nil {
 			return instructions, err
 		}

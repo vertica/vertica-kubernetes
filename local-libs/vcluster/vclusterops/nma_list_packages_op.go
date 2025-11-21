@@ -49,7 +49,7 @@ func (op *nmaListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 
 		// Add query parameters if filter is specified
 		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
-			httpRequest.QueryParams["filter"] = op.packageFilter
+			httpRequest.QueryParams["packages"] = op.packageFilter
 		}
 
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest

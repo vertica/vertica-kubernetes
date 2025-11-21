@@ -157,7 +157,7 @@ func (vcc *VClusterCommands) produceListPackagesInstructions(opts *VListPackages
 		}
 
 		listOp, err := makeHTTPSListPackagesOp(initiatorHost, usePassword, opts.UserName,
-			opts.Password, opts.PackageFilter, isOnlineMode)
+			opts.Password, opts.PackageFilter)
 		if err != nil {
 			return nil, nil, err
 		}

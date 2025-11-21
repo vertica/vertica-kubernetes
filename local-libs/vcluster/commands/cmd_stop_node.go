@@ -41,23 +41,37 @@ func makeCmdStopNode() *cobra.Command {
 		"Stops one or more nodes in a database.",
 		`Stops one or more nodes in a database.
 
+
+By default, performs graceful shutdown (SIGTERM). Use --force-kill for
+immediate termination (SIGKILL) when graceful shutdown fails.
+
 You must provide the host list with the --stop-hosts option followed 
 by one or more hosts to stop as a comma-separated list.
 
-Caution: If you only have just enough nodes up to establish database quorum 
-and you stop a node, you will lose database quorum and the remaining up 
-nodes will be set to read-only mode to prevent data loss.
+Caution: 
+- If you only have just enough nodes up to establish database quorum 
+  and you stop a node, you will lose database quorum and the remaining up 
+  nodes will be set to read-only mode to prevent data loss.
+- Graceful shutdown (default) ensures data safety
+- Force kill (--force-kill) may cause data loss
+- Only use --force-kill when graceful shutdown fails
 
 Examples:
   # Gracefully stop a node with config file
-  vcluster stop_node --stop-hosts 10.20.30.43 \
-    --config /home/dbadmin/vertica_cluster.yaml \
-    --password "PASSWORD"
+  vcluster stop_node --stop-hosts 10.20.30.43
 
   # Gracefully stop nodes with user input
   vcluster stop_node --db-name test_db --stop-hosts 10.20.30.40,10.20.30.41 \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --password "PASSWORD"
+
+  # Force kill nodes
+  vcluster stop_node --stop-hosts 10.20.30.40,10.20.30.41 --force-kill
+
+  # Force kill nodes with user input
+  vcluster stop_node --db-name test_db --stop-hosts 10.20.30.40,10.20.30.41 \
+    --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
+    --password "PASSWORD" --force-kill
 `,
 		[]string{dbNameFlag, hostsFlag, ipv6Flag, configFlag, passwordFlag},
 	)
@@ -77,6 +91,15 @@ func (c *CmdStopNode) setLocalFlags(cmd *cobra.Command) {
 		stopNodeFlag,
 		[]string{},
 		"Comma-separated list of host(s) to stop",
+	)
+
+	cmd.Flags().BoolVar(
+
+		&c.stopNodeOptions.ForceKill,
+		"force-kill",
+		false,
+		"Force kill nodes using SIGKILL instead of graceful shutdown (SIGTERM). "+
+			"WARNING: May cause data loss. Only use when graceful shutdown fails.",
 	)
 }
 
@@ -110,12 +133,23 @@ func (c *CmdStopNode) Run(vcc vclusterops.ClusterCommands) error {
 
 	options := c.stopNodeOptions
 
+	// Show warning if force-kill is used
+	if options.ForceKill {
+		vcc.DisplayInfo("WARNING: Using --force-kill (SIGKILL). This may cause data loss!")
+		vcc.DisplayInfo("Only use this when graceful shutdown has failed.")
+	}
+
 	err := vcc.VStopNode(options)
 	if err != nil {
 		vcc.LogError(err, "failed to stop the nodes", "Nodes", c.stopNodeOptions.StopHosts)
 		return err
 	}
-	vcc.DisplayInfo("Successfully stopped the nodes %v", c.stopNodeOptions.StopHosts)
+
+	if options.ForceKill {
+		vcc.DisplayInfo("Successfully killed the nodes %v", c.stopNodeOptions.StopHosts)
+	} else {
+		vcc.DisplayInfo("Successfully stopped the nodes %v", c.stopNodeOptions.StopHosts)
+	}
 	return nil
 }
 

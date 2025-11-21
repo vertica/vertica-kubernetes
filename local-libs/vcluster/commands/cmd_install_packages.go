@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -45,10 +46,26 @@ func makeCmdInstallPackages() *cobra.Command {
 	cmd := makeBasicCobraCmd(
 		newCmd,
 		installPkgSubCmd,
-		"Installs default packages into the database.",
+		"Installs packages into the database.",
 		`Installs the packages in /opt/vertica/packages.
 
 Examples:
+
+  # Install default packages (when no --package flag specified)
+  vcluster install_packages
+
+  # Install default packages
+  vcluster install_packages --package "default"
+
+  # Install all packages
+  vcluster install_packages --package "all"
+
+  # Install specific package
+  vcluster install_packages --package ComplexTypes
+
+  # Install multiple packages (comma-separated)
+  vcluster install_packages --package "ComplexTypes,kafka,logsearch"
+
   # Install default packages with user input
   vcluster install_packages --db-name test_db \
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
@@ -76,6 +93,12 @@ func (c *CmdInstallPackages) setLocalFlags(cmd *cobra.Command) {
 		false,
 		"Install the packages even if they are already installed.",
 	)
+	cmd.Flags().StringVar(
+		&c.installPkgOpts.PackageFilter,
+		"package",
+		"",
+		"Filter packages: 'default' (when not specified), 'all', specific package name, or comma-separated list of package names.",
+	)
 }
 
 func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -92,6 +115,11 @@ func (c *CmdInstallPackages) Parse(inputArgv []string, logger vlog.Printer) erro
 
 // all validations of the arguments should go in here
 func (c *CmdInstallPackages) validateParse() error {
+	// validate package filter
+	if err := util.ValidatePackageFilter(c.installPkgOpts.PackageFilter); err != nil {
+		return err
+	}
+
 	if !c.usePassword() {
 		err := c.getCertFilesFromCertPaths(&c.installPkgOpts.DatabaseOptions)
 		if err != nil {

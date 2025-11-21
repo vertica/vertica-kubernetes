@@ -28,6 +28,12 @@ type VInstallPackagesOptions struct {
 
 	// If true, the packages will be reinstalled even if they are already installed.
 	ForceReinstall bool
+
+	// PackageFilter specifies which packages to list:
+	// "" or "all" = all packages (default)
+	// "default" = only default packages
+	// specific name = only that package
+	PackageFilter string
 }
 
 func VInstallPackagesOptionsFactory() VInstallPackagesOptions {
@@ -128,7 +134,8 @@ func (vcc *VClusterCommands) produceInstallPackagesInstructions(opts *VInstallPa
 
 	var noHosts = []string{} // We pass in no hosts so that this op picks an up node from the previous call.
 	verbose := false         // Silence verbose output as we will print package status at the end
-	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, opts.UserName, opts.Password, opts.ForceReinstall, verbose)
+	installOp, err := makeHTTPSInstallPackagesOp(noHosts, usePassword, opts.UserName,
+		opts.Password, opts.ForceReinstall, opts.PackageFilter, verbose)
 	if err != nil {
 		return nil, nil, err
 	}
