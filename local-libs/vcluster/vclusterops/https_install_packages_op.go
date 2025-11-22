@@ -29,11 +29,10 @@ type httpsInstallPackagesOp struct {
 	verbose        bool // Include verbose output about package install status
 	forceReinstall bool
 	status         InstallPackageStatus // Filled in once the op completes
-	packageFilter  string
 }
 
 func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, forceReinstall bool, packageFilter string, verbose bool,
+	userName string, httpsPassword *string, forceReinstall bool, verbose bool,
 ) (httpsInstallPackagesOp, error) {
 	op := httpsInstallPackagesOp{}
 	op.name = "HTTPSInstallPackagesOp"
@@ -41,7 +40,6 @@ func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
 	op.hosts = hosts
 	op.verbose = verbose
 	op.forceReinstall = forceReinstall
-	op.packageFilter = packageFilter
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -55,17 +53,19 @@ func makeHTTPSInstallPackagesOp(hosts []string, useHTTPPassword bool,
 
 func (op *httpsInstallPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 	for _, host := range hosts {
-		queryParams := map[string]string{
+		httpRequest := hostHTTPRequest{}
+		httpRequest.Method = PostMethod
+		httpRequest.buildHTTPSEndpoint("packages")
+		if op.useHTTPPassword {
+			httpRequest.Password = op.httpsPassword
+			httpRequest.Username = op.userName
+		}
+		httpRequest.QueryParams = map[string]string{
 			"force-install": strconv.FormatBool(op.forceReinstall),
 		}
-		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
-			queryParams["packages"] = op.packageFilter
-		}
-		op.clusterHTTPRequest.RequestCollection[host] = buildPackagesHTTPRequest(
-			PostMethod, "packages",
-			op.useHTTPPassword, op.userName, op.httpsPassword, queryParams,
-		)
+		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
+
 	return nil
 }
 
@@ -103,11 +103,11 @@ structs, will look like this:
 
 	             {
 	               'package_name': 'ComplexTypes',
-	               'install_status': 'Skipped - already installed'
+	               'install_status': 'skipped'
 	             },
 	             {
 	               'package_name': 'DelimitedExport',
-	               'install_status': 'Installed successfully'
+	               'install_status': 'skipped'
 	             },
 	           ...
 	           ]
@@ -160,19 +160,4 @@ func (op *httpsInstallPackagesOp) processResult(_ *opEngineExecContext) error {
 		}
 	}
 	return allErrs
-}
-
-func buildPackagesHTTPRequest(method string, endpoint string, useHTTPPassword bool, userName string, httpsPassword *string,
-	queryParams map[string]string,
-) hostHTTPRequest {
-	httpRequest := hostHTTPRequest{}
-	httpRequest.Method = method
-	httpRequest.buildHTTPSEndpoint(endpoint)
-
-	if useHTTPPassword {
-		httpRequest.Password = httpsPassword
-		httpRequest.Username = userName
-	}
-	httpRequest.QueryParams = queryParams
-	return httpRequest
 }

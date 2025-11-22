@@ -18,6 +18,7 @@ package vclusterops
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 )
@@ -26,17 +27,19 @@ type httpsListPackagesOp struct {
 	opBase
 	opHTTPSBase
 	packageFilter string
+	checkStatus   bool
 	status        ListPackageStatus // Filled in once the op completes
 }
 
 func makeHTTPSListPackagesOp(hosts []string, useHTTPPassword bool,
-	userName string, httpsPassword *string, packageFilter string,
+	userName string, httpsPassword *string, packageFilter string, checkStatus bool,
 ) (httpsListPackagesOp, error) {
 	op := httpsListPackagesOp{}
 	op.name = "HTTPSListPackagesOp"
 	op.description = "List packages"
 	op.hosts = hosts
 	op.packageFilter = packageFilter
+	op.checkStatus = checkStatus
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -57,13 +60,13 @@ func (op *httpsListPackagesOp) setupClusterHTTPRequest(hosts []string) error {
 			httpRequest.Password = op.httpsPassword
 			httpRequest.Username = op.userName
 		}
-
-		// Add packages parameter only if specified and not "all"
+		httpRequest.QueryParams = map[string]string{
+			"check-status": strconv.FormatBool(op.checkStatus),
+		}
+		// Add filter parameter only if specified and not "all"
 		// API defaults to "all" when filter is omitted
 		if op.packageFilter != "" && op.packageFilter != util.PkgFilterAll {
-			httpRequest.QueryParams = map[string]string{
-				"packages": op.packageFilter,
-			}
+			httpRequest.QueryParams["filter"] = op.packageFilter
 		}
 		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
 	}
