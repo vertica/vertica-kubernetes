@@ -73,9 +73,15 @@ Examples:
   vcluster start_db --password testpassword \
     --config /home/dbadmin/vertica_cluster.yaml --main-cluster-only \
     --password "PASSWORD"
+
+  # Start a database from a specified epoch
+  vcluster start_db --epoch 10
+
+  # Start a database from the last good epoch
+  vcluster start_db --epoch last
 `,
 		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, ipv6Flag,
-			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
+			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag, epochFlag},
 	)
 
 	// local flags
@@ -116,6 +122,15 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 		"sync-catalog",
 		false,
 		"Whether to sync the catalog after all nodes are up",
+	)
+
+	cmd.Flags().StringVar(
+		&c.startDBOptions.Epoch,
+		"epoch",
+		"",
+		"[Enterprise Only] Epoch at which the database is to be started from. "+
+			"If '--epoch last' is given as an argument, the database is restarted from the last good epoch. "+
+			"May cause data loss. Use with caution!",
 	)
 }
 
