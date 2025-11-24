@@ -1,6 +1,0 @@
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-cert-rotate-both
-  annotations:
-    vertica.com/trigger-tls-update-failure: "client_server"

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/settlsconfig"
 )
@@ -74,7 +75,7 @@ var _ = Describe("set_config_parameter_vc", func() {
 
 		err1 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
-			settlsconfig.WithHTTPSTLSConfig(TestIsHTTPSConfig),
+			settlsconfig.WithTLSConfigName(v1.HTTPSNMATLSConfigName),
 			settlsconfig.WithTLSMode(TestHTTPSTLSMode),
 			settlsconfig.WithTLSSecretName(dispatcher.VDB.Spec.HTTPSNMATLS.Secret),
 			settlsconfig.WithNamespace(TestNamespace),
@@ -82,7 +83,7 @@ var _ = Describe("set_config_parameter_vc", func() {
 		Ω(err1).Should(Succeed())
 		err2 := dispatcher.SetTLSConfig(ctx,
 			settlsconfig.WithInitiatorIP(TestSourceIP),
-			settlsconfig.WithHTTPSTLSConfig(!TestIsHTTPSConfig),
+			settlsconfig.WithTLSConfigName(v1.ClientServerTLSConfigName),
 			settlsconfig.WithTLSSecretName(dispatcher.VDB.GetClientServerTLSSecret()),
 			settlsconfig.WithTLSMode(TestClientServerTLSMode),
 			settlsconfig.WithNamespace(TestNamespace),

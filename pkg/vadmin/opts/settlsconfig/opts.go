@@ -16,12 +16,12 @@
 package settlsconfig
 
 type Parms struct {
-	InitiatorIP      string
-	TLSMode          string
-	TLSSecretName    string
-	Namespace        string
-	IsHTTPSTLSConfig bool
-	GrantAuth        bool
+	InitiatorIP   string
+	TLSMode       string
+	TLSSecretName string
+	Namespace     string
+	TLSConfigName string
+	GrantAuth     bool
 }
 
 // Option is a function that configures a Parms instance.
@@ -62,11 +62,10 @@ func WithInitiatorIP(initiatorIP string) Option {
 	}
 }
 
-// WithHTTPSTLSConfig specifies whether the current API call is for https
-// or client server. Trues means the call is for https.
-func WithHTTPSTLSConfig(isHTTPSTLSConfig bool) Option {
+// WithTLSConfigName specifies the tls config name
+func WithTLSConfigName(tlsConfigName string) Option {
 	return func(p *Parms) {
-		p.IsHTTPSTLSConfig = isHTTPSTLSConfig
+		p.TLSConfigName = tlsConfigName
 	}
 }
 

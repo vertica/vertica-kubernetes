@@ -64,15 +64,12 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 	if !h.nmaCertRotationNeeded() {
 		return ctrl.Result{}, nil
 	}
-
 	// we want to be sure nma tls configmap exists and has the freshest values
 	if res, errCheck := h.Manager.checkNMATLSConfigMap(ctx); verrors.IsReconcileAborted(res, errCheck) {
 		return res, errCheck
 	}
-
 	// nma secret
 	newSecretName := h.Vdb.GetHTTPSNMATLSSecretForConfigMap()
-
 	newSecret, res, err := readSecret(h.Vdb, h.VRec, h.VRec.GetClient(), h.Log, ctx, newSecretName)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -87,11 +84,9 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		}
 		return res, err
 	}
-
 	if h.RestartOnly {
 		return ctrl.Result{}, nil
 	}
-
 	updateConds := func(conds []*metav1.Condition) error {
 		if err := vdbstatus.UpdateConditions(ctx, h.VRec.GetClient(), h.Vdb, conds); err != nil {
 			return err

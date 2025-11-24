@@ -11,3 +11,4 @@ status:
     - cert2
     - cert3
     - cert1
+  - name: interNode

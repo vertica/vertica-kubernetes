@@ -48,6 +48,7 @@ import (
 const (
 	tlsConfigServer      = "Server"
 	tlsConfigHTTPS       = "HTTP"
+	tlsConfigInterNode   = "Internode"
 	certicatePrefixHTTPS = ""
 )
 
@@ -202,16 +203,26 @@ func (t *TLSConfigManager) updateTLSConfig(ctx context.Context, initiator string
 }
 
 // updateTLSModeInStatus updates the tls mode in the status after it was updated
-// in the database
+// in the database. For InterNode TLS, the status is updated by the InterNodeTLSUpdateReconciler
+// directly, so we skip it here.
 func (t *TLSConfigManager) updateTLSModeInStatus(ctx context.Context) error {
-	if t.CurrentTLSMode != t.NewTLSMode {
-		t.Log.Info("Starting tls mode update in status", "old", t.CurrentTLSMode, "new", t.NewTLSMode)
-		httpsTLSConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
-		err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{httpsTLSConfig})
-		if err != nil {
-			t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
-			return err
-		}
+	// Skip update for InterNode TLS as it's handled by InterNodeTLSUpdateReconciler
+	if t.tlsConfigName == vapi.InterNodeTLSConfigName {
+		return nil
+	}
+
+	// Skip update if mode hasn't changed
+	if t.CurrentTLSMode == t.NewTLSMode {
+		return nil
+	}
+
+	t.Log.Info("Starting tls mode update in status", "tlsConfig", t.tlsConfigName, "old", t.CurrentTLSMode, "new", t.NewTLSMode)
+
+	tlsConfig := vapi.MakeTLSConfig(t.tlsConfigName, t.Vdb.GetSecretInUse(t.tlsConfigName), t.NewTLSMode)
+	err := vdbstatus.UpdateTLSConfigs(ctx, t.Rec.GetClient(), t.Vdb, []*vapi.TLSConfigStatus{tlsConfig})
+	if err != nil {
+		t.Log.Error(err, "failed to update tls mode in status after tls mode update in db")
+		return err
 	}
 
 	return nil
@@ -224,7 +235,7 @@ func (t *TLSConfigManager) setTLSConfigInDB(ctx context.Context, initiatorPod *p
 		settlsconfig.WithTLSSecretName(t.NewSecret),
 		settlsconfig.WithInitiatorIP(initiatorPod.GetPodIP()),
 		settlsconfig.WithNamespace(t.Vdb.GetNamespace()),
-		settlsconfig.WithHTTPSTLSConfig(t.isHTTPSTLSConfig()),
+		settlsconfig.WithTLSConfigName(t.TLSConfig),
 		settlsconfig.WithGrantAuth(grantAuth),
 	}
 
@@ -297,6 +308,10 @@ func (t *TLSConfigManager) isClientServerTLSConfig() bool {
 	return t.TLSConfig == tlsConfigServer
 }
 
+func (t *TLSConfigManager) isInterNodeTLSConfig() bool {
+	return t.TLSConfig == tlsConfigInterNode
+}
+
 func (t *TLSConfigManager) isHTTPSTLSConfig() bool {
 	return t.TLSConfig == tlsConfigHTTPS
 }
@@ -327,6 +342,10 @@ func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 		started = events.ClientServerTLSUpdateStarted
 		failed = events.ClientServerTLSUpdateFailed
 		succeeded = events.ClientServerTLSUpdateSucceeded
+	case tlsConfigInterNode:
+		started = events.InterNodeTLSUpdateStarted
+		failed = events.InterNodeTLSUpdateFailed
+		succeeded = events.InterNodeTLSUpdateSucceeded
 	}
 
 	return
@@ -338,7 +357,6 @@ func (t *TLSConfigManager) getEvents() (started, failed, succeeded string) {
 func (t *TLSConfigManager) setTLSUpdateType() {
 	certChanged := t.CurrentSecret != "" && t.NewSecret != t.CurrentSecret
 	modeChanged := t.NewTLSMode != t.CurrentTLSMode
-
 	switch {
 	case modeChanged && certChanged:
 		t.TLSUpdateType = tlsModeAndCertChange
@@ -396,6 +414,12 @@ func (t *TLSConfigManager) setTLSUpdatedata() {
 		t.CurrentTLSMode = t.Vdb.GetClientServerTLSModeInUse()
 		t.NewTLSMode = t.Vdb.GetClientServerTLSMode()
 		t.tlsConfigName = vapi.ClientServerTLSConfigName
+	case tlsConfigInterNode:
+		t.CurrentSecret = t.Vdb.GetInterNodeTLSSecretInUse()
+		t.NewSecret = t.Vdb.GetInterNodeTLSSecret()
+		t.CurrentTLSMode = t.Vdb.GetInterNodeTLSModeInUse()
+		t.NewTLSMode = t.Vdb.GetInterNodeTLSMode()
+		t.tlsConfigName = vapi.InterNodeTLSConfigName
 	}
 }
 
@@ -403,7 +427,9 @@ func (t *TLSConfigManager) getTLSConfigName() string {
 	if t.isHTTPSTLSConfig() {
 		return "https"
 	}
-
+	if t.isInterNodeTLSConfig() {
+		return "data_channel"
+	}
 	return "server"
 }
 
@@ -417,7 +443,6 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err == nil || !t.Vdb.IsTLSCertRollbackEnabled() || t.Vdb.IsTLSCertRollbackInProgress() {
 		return err
 	}
-
 	// Unset the force failure annotation (used for testing) if it has been set. This needs to be
 	// done so that subsequent rotations, like rollback rotation, will work.
 	err1 := t.unsetForceTLSUpdateFailure(ctx)
@@ -425,7 +450,6 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err1 != nil {
 		return err1
 	}
-
 	reason := t.getRollbackReason(err)
 	cond := vapi.MakeCondition(vapi.TLSCertRollbackNeeded, metav1.ConditionTrue, reason)
 	err1 = vdbstatus.UpdateCondition(ctx, t.Rec.GetClient(), t.Vdb, cond)
@@ -433,11 +457,13 @@ func (t *TLSConfigManager) triggerRollback(ctx context.Context, err error) error
 	if err1 != nil {
 		return err1
 	}
-
 	return err
 }
 
 func (t *TLSConfigManager) getRollbackReason(err error) string {
+	if t.isInterNodeTLSConfig() {
+		return vapi.RollbackAfterInterNodeCertRotationReason
+	}
 	if t.isClientServerTLSConfig() {
 		return vapi.RollbackAfterServerCertRotationReason
 	}
