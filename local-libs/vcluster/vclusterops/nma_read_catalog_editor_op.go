@@ -218,7 +218,7 @@ type nmaVDatabase struct {
 }
 
 func (op *nmaReadCatalogEditorOp) processResult(e *opEngineExecContext) error {
-	if !e.hasNoQuorum && op.forInPlaceRevive {
+	if !e.quorumLost && op.forInPlaceRevive {
 		return nil
 	}
 	var maxGlobalVersion int64
@@ -329,7 +329,7 @@ func (op *nmaReadCatalogEditorOp) isCurrentNodeSecondary(host string, nmaVDB *nm
 // the errors whether or not execute was called.
 func (op *nmaReadCatalogEditorOp) finalize(execContext *opEngineExecContext) error {
 	// save hostsWithLatestCatalog to execContext
-	if !execContext.hasNoQuorum && op.forInPlaceRevive {
+	if !execContext.quorumLost && op.forInPlaceRevive {
 		return nil
 	}
 	if len(op.hostsWithLatestCatalog) == 0 {
@@ -338,7 +338,7 @@ func (op *nmaReadCatalogEditorOp) finalize(execContext *opEngineExecContext) err
 		return op.allErrs
 	}
 
-	if op.forInPlaceRevive && execContext.hasNoQuorum {
+	if op.forInPlaceRevive && execContext.quorumLost {
 		latestHostSet := mapset.NewSet[string]()
 		for _, h := range op.hostsWithLatestCatalog {
 			latestHostSet.Add(h)

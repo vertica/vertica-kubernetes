@@ -242,7 +242,7 @@ func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 
 	// quorum check
 	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) || !nodeCountMatchforZeroKsafety {
-		execContext.hasNoQuorum = true
+		execContext.quorumLost = true
 		op.skipExecute = true
 		op.logger.Info("failed quorum check, not enough primary nodes exist: ", "primary node count", len(op.hosts))
 		return nil
