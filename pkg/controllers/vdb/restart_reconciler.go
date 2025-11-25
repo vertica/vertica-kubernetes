@@ -195,13 +195,14 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	isVClusterOps := r.Vdb.UseVClusterOpsDeployment()
 	// Re-IP needs to collect all nodes' IPs. When using vclusterops, we do not want to
 	// restart transient nodes because there is not a config file for vclusterops to retrieve
 	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
 	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
 	// to restart for vclusterops.
 	downPods := r.PFacts.FindRestartablePods(r.RestartReadOnly,
-		!r.Vdb.UseVClusterOpsDeployment(), /* restartTransient */
+		!isVClusterOps, /* restartTransient */
 		true /* restartPendingDelete */)
 
 	// Kill any read-only vertica process that may still be running and any vertica process
@@ -227,24 +228,21 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if !r.Vdb.UseVClusterOpsDeployment() && !r.PFacts.AreAllPodsRunning() {
+	if !isVClusterOps && !r.PFacts.AreAllPodsRunning() {
 		r.Log.Info("Not all pods are running. Cannot re-ip. Need to requeue")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// re-ip nodes. This is done ahead of the db check in case we need to update
 	// the IP of nodes that have been installed but not yet added to the db.
-	reIPPods := r.getReIPPods(false)
-	canReIPAllDownPods := containPods(reIPPods, downPods)
-	if r.Vdb.UseVClusterOpsDeployment() && !canReIPAllDownPods {
-		r.Log.Info("Not all restartable pods are qualified to re-ip. Need to requeue restart reconciler")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
+	if res, err := r.handleReIPNodes(ctx, downPods, isVClusterOps); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	// If no db, there is nothing to restart so we can exit.
-	if !r.PFacts.DoesDBExist() {
+	// For vclusterOps, we have already checked dbExists above.
+	dbExists := r.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
+	if !isVClusterOps && !dbExists {
+		r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
 		return ctrl.Result{}, nil
 	}
 
@@ -256,6 +254,17 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	r.PFacts.Invalidate()
 
 	return ctrl.Result{}, nil
+}
+
+// handleReIPNodes wraps reipNodes and related checks for complexity reduction
+func (r *RestartReconciler) handleReIPNodes(ctx context.Context, downPods []*podfacts.PodFact, isVClusterOps bool) (ctrl.Result, error) {
+	reIPPods := r.getReIPPods(false)
+	canReIPAllDownPods := containPods(reIPPods, downPods)
+	if isVClusterOps && !canReIPAllDownPods {
+		r.Log.Info("Not all restartable pods are qualified to re-ip. Need to requeue restart reconciler")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return r.reipNodes(ctx, reIPPods)
 }
 
 func (r *RestartReconciler) checkStartup(ctx context.Context, downPods []*podfacts.PodFact) (bool, ctrl.Result, error) {

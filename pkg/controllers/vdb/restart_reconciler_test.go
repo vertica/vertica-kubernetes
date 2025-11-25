@@ -28,7 +28,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -226,6 +228,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "")
+		Expect(vdbstatus.UpdateCondition(ctx, vdbRec.GetClient(), vdb, cond)).Error().Should(BeNil())
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
@@ -264,6 +268,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "")
+		Expect(vdbstatus.UpdateCondition(ctx, vdbRec.GetClient(), vdb, cond)).Error().Should(BeNil())
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsDefault(fpr)
@@ -540,6 +546,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "")
+		Expect(vdbstatus.UpdateCondition(ctx, vdbRec.GetClient(), vdb, cond)).Error().Should(BeNil())
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsDefault(fpr)
