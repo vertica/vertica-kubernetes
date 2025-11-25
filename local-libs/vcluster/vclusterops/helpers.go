@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -611,6 +612,73 @@ func (vcc *VClusterCommands) getUnreachableHosts(options *DatabaseOptions, hosts
 		return nil, err
 	}
 	return opEng.execContext.unreachableHosts, nil
+}
+
+// returns the epoch info from all hosts
+// should only be called when we know the database is down
+func (vcc *VClusterCommands) getEpochInfo(vdb *VCoordinationDatabase, options *DatabaseOptions,
+	hosts []string) ([]EpochInfo, error) {
+	var epochInfoInstructions []clusterOp
+	var epochInfo []EpochInfo
+	nmaEpochInfoData := nmaEpochInfoRequestData{}
+
+	hostCatPathMap, err := buildHostCatalogPathMap(options.Hosts, vdb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build host to catalog path map: %w", err)
+	}
+
+	nmaEpochInfoOp := makeNMAEpochInfoOp(hosts, &nmaEpochInfoData, &epochInfo, hostCatPathMap)
+	epochInfoInstructions = []clusterOp{&nmaEpochInfoOp}
+
+	opEng := makeClusterOpEngine(epochInfoInstructions, options)
+	err = opEng.run(vcc.Log)
+	if err != nil {
+		return nil, err
+	}
+
+	return epochInfo, nil
+}
+
+// returns the latest ancient history mark
+func getLatestAncientHistoryMark(epochInfo []EpochInfo) (int64, error) {
+	if len(epochInfo) == 0 {
+		return 0, fmt.Errorf("no epoch info provided")
+	}
+	latestAHM := int64(0)
+	for _, info := range epochInfo {
+		parsedAHM, err := strconv.ParseInt(info.AHMEpoch, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse AHM %s : %w", info.AHMEpoch, err)
+		}
+		if parsedAHM > latestAHM && parsedAHM >= 0 {
+			latestAHM = parsedAHM
+		}
+	}
+	return latestAHM, nil
+}
+
+// returns a map of host addresses to their catalog paths
+func buildHostCatalogPathMap(hosts []string, vdb *VCoordinationDatabase) (map[string]string, error) {
+	hostCatPathMap := make(map[string]string)
+	var allErrors error
+	for _, host := range hosts {
+		nodeInfo := vdb.HostNodeMap[host]
+		if nodeInfo == nil {
+			return hostCatPathMap, fmt.Errorf("host %s has no saved info", host)
+		}
+
+		if nodeInfo.Name == "" {
+			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has empty name", host))
+		}
+		err := util.ValidateRequiredAbsPath(nodeInfo.CatalogPath, "catalog path")
+		if err != nil {
+			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has problematic catalog path %s, details: %w",
+				host, nodeInfo.CatalogPath, err))
+		}
+		hostCatPathMap[host] = nodeInfo.CatalogPath
+	}
+
+	return hostCatPathMap, allErrors
 }
 
 // An nmaGenericJSONResponse is the default response that is generated,
