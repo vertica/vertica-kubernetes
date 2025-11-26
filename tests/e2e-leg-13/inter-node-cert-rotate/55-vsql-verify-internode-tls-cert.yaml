@@ -15,4 +15,6 @@ apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
   - command: bash ./vsql_verify.sh
+  - command: bash ./vsql_verify_mode.sh
+
 

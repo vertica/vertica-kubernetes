@@ -23,10 +23,14 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-inter-node-cert-rotate
+spec:
+  interNodeTLS:
+    enabled: true
+    mode: TRY_VERIFY
 status:
   tlsConfigs:
-    - name: httpsNMA
     - name: interNode
+      mode: try_verify
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3
