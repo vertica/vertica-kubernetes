@@ -108,3 +108,56 @@ func TestTrimReIPList(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(op.reIPList), 3)
 }
+
+func TestGenNewVdb(t *testing.T) {
+	const dbName = "test_db"
+
+	// prepare a vdb
+	var vdb VCoordinationDatabase
+	vdb.HostNodeMap = make(vHostNodeMap)
+	for i := 1; i <= 3; i++ {
+		var vnode VCoordinationNode
+		vnode.Name = fmt.Sprintf("v_%s_node%04d", dbName, i)
+		vnode.Address = fmt.Sprintf("ip%d", i)
+		vdb.HostNodeMap[vnode.Address] = &vnode
+	}
+
+	// prepare a re-ip list
+	// this list shows the original address and the target address
+	var options VReIPOptions
+	var reIPList []ReIPInfo
+	var reIPInfo ReIPInfo
+	reIPInfo.NodeAddress = "ip3"
+	reIPInfo.TargetAddress = "ip4"
+	reIPList = append(reIPList, reIPInfo)
+	options.ReIPList = reIPList
+
+	var logger vlog.Printer
+
+	// we expect:
+	// - only one IP is updated in HostList
+	// - only one IP is updated in HostNodeMap
+	newVdb := options.genNewVdb(&vdb, logger)
+	assert.Equal(t, newVdb.HostList, []string{"ip1", "ip2", "ip4"})
+	assert.Equal(t, vdb.HostNodeMap["ip1"], newVdb.HostNodeMap["ip1"])
+	assert.Equal(t, vdb.HostNodeMap["ip2"], newVdb.HostNodeMap["ip2"])
+	assert.Equal(t, vdb.HostNodeMap["ip3"], newVdb.HostNodeMap["ip4"])
+	assert.Equal(t, len(vdb.HostNodeMap), 3)
+
+	// prepare another re-ip list
+	// this list shows the node name and the target address
+	var reIPInfo2 ReIPInfo
+	reIPInfo2.NodeName = fmt.Sprintf("v_%s_node%04d", dbName, 3)
+	reIPInfo2.TargetAddress = "ip5"
+	reIPList[0] = reIPInfo2
+
+	// we expect:
+	// - only one IP is updated in HostList
+	// - only one IP is updated in HostNodeMap
+	newVdb2 := options.genNewVdb(&vdb, logger)
+	assert.Equal(t, newVdb2.HostList, []string{"ip1", "ip2", "ip5"})
+	assert.Equal(t, vdb.HostNodeMap["ip1"], newVdb2.HostNodeMap["ip1"])
+	assert.Equal(t, vdb.HostNodeMap["ip2"], newVdb2.HostNodeMap["ip2"])
+	assert.Equal(t, vdb.HostNodeMap["ip3"], newVdb2.HostNodeMap["ip5"])
+	assert.Equal(t, len(vdb.HostNodeMap), 3)
+}
