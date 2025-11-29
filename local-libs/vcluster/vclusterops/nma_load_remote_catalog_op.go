@@ -34,6 +34,7 @@ type nmaLoadRemoteCatalogOp struct {
 	restorePoint            *RestorePointPolicy
 	Sandbox                 string
 	forInPlaceRevive        bool
+	quorumLost              bool
 }
 
 type loadRemoteCatalogRequestData struct {
@@ -87,6 +88,7 @@ func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationPa
 	op := makeNMALoadRemoteCatalogOp(oldHosts, configurationParameters, vdb, 0, nil)
 	op.Sandbox = sandbox
 	op.forInPlaceRevive = true
+	op.quorumLost = true
 	return op
 }
 
@@ -94,7 +96,7 @@ func makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts []string, configurationPa
 func (op *nmaLoadRemoteCatalogOp) setupRequestBody(execContext *opEngineExecContext) error {
 	if op.forInPlaceRevive && op.vdb == nil {
 		op.vdb = new(VCoordinationDatabase)
-		populateVdbFromNMACatalogEditor(op.vdb, &execContext.nmaVDatabase)
+		populateVdbFromNMAVdb(op.vdb, &execContext.nmaVDatabase)
 		for h := range execContext.nmaVDatabase.HostNodeMap {
 			op.hosts = append(op.hosts, h)
 		}
@@ -194,9 +196,11 @@ func (op *nmaLoadRemoteCatalogOp) finalize(_ *opEngineExecContext) error {
 func (op *nmaLoadRemoteCatalogOp) processResult(e *opEngineExecContext) error {
 	var allErrs error
 	var successPrimaryNodeCount uint
-	if !e.hasNoQuorum && op.forInPlaceRevive {
+
+	if !(e.quorumLost || op.quorumLost) && op.forInPlaceRevive {
 		return nil
 	}
+
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
 		op.logResponse(host, result)
 
