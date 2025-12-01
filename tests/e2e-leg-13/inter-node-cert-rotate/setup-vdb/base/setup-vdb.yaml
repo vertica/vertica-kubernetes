@@ -29,7 +29,6 @@ spec:
   dbName: vertdb
   interNodeTLS:
     enabled: true
-    mode: TRY_VERIFY
   subclusters:
     - name: sc1
       size: 3

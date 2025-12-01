@@ -29,7 +29,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Successfully rotated Internode tls cert with secret name cert3 and mode try_verify
+message: Successfully rotated Internode tls cert with secret name cert3 and mode verify_ca
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB

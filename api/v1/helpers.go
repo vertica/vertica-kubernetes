@@ -2500,7 +2500,15 @@ func (v *VerticaDB) GetClientServerTLSMode() string {
 }
 
 func (v *VerticaDB) GetInterNodeTLSMode() string {
-	return strings.ToLower(v.GetSpecInterNodeTLSMode())
+	mode := strings.ToLower(v.GetSpecInterNodeTLSMode())
+	// For interNodeTLS, normalize TRY_VERIFY and VERIFY_FULL to VERIFY_CA
+	// because on the server side, these modes are all equivalent (no hostname validation)
+	// and the server normalizes them to VERIFY_CA. This handles the case when webhooks
+	// are disabled.
+	if mode == tlsModeTryVerify || mode == tlsModeVerifyFull {
+		return tlsModeVerifyCA
+	}
+	return mode
 }
 
 // Get ClientServerTLS secret from spec or return "" if not found

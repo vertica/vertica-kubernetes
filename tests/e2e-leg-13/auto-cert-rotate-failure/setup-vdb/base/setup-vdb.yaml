@@ -33,7 +33,7 @@ spec:
   clientServerTLS:
     mode: TRY_VERIFY
   interNodeTLS:
-    mode: TRY_VERIFY
+    mode: VERIFY_CA
   subclusters:
     - name: sc1
       size: 3

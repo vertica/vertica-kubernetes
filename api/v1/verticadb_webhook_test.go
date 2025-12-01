@@ -3092,6 +3092,102 @@ var _ = Describe("verticadb_webhook", func() {
 		Expect(allErrs).To(BeEmpty())
 	})
 
+	It("should accept VERIFY_CA mode for interNodeTLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = &TLSConfigSpec{
+			Secret:  "inter-node-secret",
+			Mode:    tlsModeVerifyCA,
+			Enabled: BoolPtr(true),
+		}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should reject TRY_VERIFY mode for interNodeTLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = &TLSConfigSpec{
+			Secret:  "inter-node-secret",
+			Mode:    tlsModeTryVerify,
+			Enabled: BoolPtr(true),
+		}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("interNodeTLS does not support TRY_VERIFY and VERIFY_FULL"))
+	})
+
+	It("should reject VERIFY_FULL mode for interNodeTLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = &TLSConfigSpec{
+			Secret:  "inter-node-secret",
+			Mode:    tlsModeVerifyFull,
+			Enabled: BoolPtr(true),
+		}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).ToNot(BeEmpty())
+		Expect(allErrs[0].Error()).To(ContainSubstring("interNodeTLS does not support TRY_VERIFY and VERIFY_FULL"))
+	})
+
+	It("should not error if interNodeTLS mode is empty (will be defaulted)", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = &TLSConfigSpec{
+			Secret:  "inter-node-secret",
+			Mode:    "",
+			Enabled: BoolPtr(true),
+		}
+		allErrs := vdb.hasValidTLSModes(field.ErrorList{})
+		Expect(allErrs).To(BeEmpty())
+	})
+
+	It("should set default mode to VERIFY_CA for interNodeTLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = &TLSConfigSpec{
+			Secret:  "inter-node-secret",
+			Mode:    "",
+			Enabled: BoolPtr(true),
+		}
+		// Call the webhook default method
+		vdb.setDefaultTLSModes()
+		Expect(vdb.Spec.InterNodeTLS.Mode).To(Equal("VERIFY_CA"))
+	})
+
+	It("should set default mode to TRY_VERIFY for HTTPSNMATLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = &TLSConfigSpec{
+			Secret:  "https-secret",
+			Mode:    "",
+			Enabled: BoolPtr(true),
+		}
+		vdb.Spec.ClientServerTLS = nil
+		vdb.Spec.InterNodeTLS = nil
+		// Call the webhook default method
+		vdb.setDefaultTLSModes()
+		Expect(vdb.Spec.HTTPSNMATLS.Mode).To(Equal("TRY_VERIFY"))
+	})
+
+	It("should set default mode to TRY_VERIFY for ClientServerTLS", func() {
+		vdb := MakeVDBForTLS()
+		vdb.Spec.HTTPSNMATLS = nil
+		vdb.Spec.ClientServerTLS = &TLSConfigSpec{
+			Secret:  "client-server-secret",
+			Mode:    "",
+			Enabled: BoolPtr(true),
+		}
+		vdb.Spec.InterNodeTLS = nil
+		// Call the webhook default method
+		vdb.setDefaultTLSModes()
+		Expect(vdb.Spec.ClientServerTLS.Mode).To(Equal("TRY_VERIFY"))
+	})
+
 	It("should fail if secrets list is empty", func() {
 		vdb := MakeVDBForTLS()
 		vdb.Spec.ClientServerTLS = MakeTLSWithAutoRotate([]string{}, 10, "")

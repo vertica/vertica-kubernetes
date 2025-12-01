@@ -7,4 +7,4 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Failed to rotate Internode tls cert with secret name cert2 and mode try_verify
+message: Failed to rotate Internode tls cert with secret name cert2 and mode verify_ca

@@ -4,4 +4,4 @@ metadata:
   name: v-inter-node-cert-rotate
 spec:
   interNodeTLS:
-    mode: VERIFY_CA
+    mode: ENABLE

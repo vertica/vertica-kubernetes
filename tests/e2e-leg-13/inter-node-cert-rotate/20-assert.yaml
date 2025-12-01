@@ -26,11 +26,11 @@ metadata:
 spec:
   interNodeTLS:
     enabled: true
-    mode: TRY_VERIFY
+    mode: VERIFY_CA
 status:
   tlsConfigs:
     - name: interNode
-      mode: try_verify
+      mode: verify_ca
   subclusters:
     - addedToDBCount: 3
       upNodeCount: 3

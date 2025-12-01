@@ -122,6 +122,7 @@ func (v *VerticaDB) Default() {
 	v.setDefaultSandboxImages()
 	v.setDefaultProxy()
 	v.setDefaultTLSEnabled()
+	v.setDefaultTLSModes()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -1210,6 +1211,9 @@ func (v *VerticaDB) hasValidTLSModes(allErrs field.ErrorList) field.ErrorList {
 	}
 	if v.Spec.ClientServerTLS != nil && v.IsClientServerTLSAuthEnabled() {
 		allErrs = v.hasValidTLSMode(v.GetClientServerTLSMode(), "clientServerTLS", allErrs)
+	}
+	if v.Spec.InterNodeTLS != nil && v.IsInterNodeTLSAuthEnabled() {
+		allErrs = v.hasValidInterNodeTLSMode(allErrs)
 	}
 
 	return allErrs
@@ -2941,6 +2945,35 @@ func (v *VerticaDB) hasValidTLSMode(tlsModeToValidate, fieldName string, allErrs
 	return allErrs
 }
 
+// hasValidInterNodeTLSMode checks if the interNode TLS mode is valid.
+// For interNodeTLS, TRY_VERIFY and VERIFY_FULL are disallowed because on the server side,
+// TRY_VERIFY, VERIFY_FULL, and VERIFY_CA are all equivalent (no hostname validation)
+// and the server normalizes them to VERIFY_CA.
+func (v *VerticaDB) hasValidInterNodeTLSMode(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsInterNodeTLSAuthEnabled() {
+		return allErrs
+	}
+
+	// Check the spec mode directly (not normalized) to validate user input
+	specMode := strings.ToLower(v.GetSpecInterNodeTLSMode())
+	if specMode == "" {
+		// Empty mode is fine, it will be defaulted
+		return allErrs
+	}
+
+	// TRY_VERIFY and VERIFY_FULL are not allowed for interNodeTLS
+	if specMode == tlsModeTryVerify || specMode == tlsModeVerifyFull {
+		err := field.Invalid(
+			field.NewPath("spec").Child("interNodeTLS").Child("mode"),
+			v.GetSpecInterNodeTLSMode(),
+			"interNodeTLS does not support TRY_VERIFY and VERIFY_FULL, only VERIFY_CA",
+		)
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
 // checkValidTLSConfigUpdate enforces:
 // 1. If tls config update is in progress, all other operations are not allowed.
 // 2. Cannot disable mutual TLS after it's enabled.
@@ -3204,6 +3237,23 @@ func (v *VerticaDB) setDefaultTLSEnabled() {
 	}
 	if v.Spec.InterNodeTLS != nil && v.Spec.InterNodeTLS.Enabled == nil {
 		v.Spec.InterNodeTLS.Enabled = v.getDefaultEnabledValue()
+	}
+}
+
+// setDefaultTLSModes sets the default TLS mode for each TLS configuration if not specified.
+//   - InterNodeTLS defaults to VERIFY_CA because TRY_VERIFY, VERIFY_FULL, and VERIFY_CA
+//     are all equivalent on the server side (no hostname validation), and the server
+//     normalizes them to VERIFY_CA.
+//   - HTTPSNMATLS and ClientServerTLS default to TRY_VERIFY for backward compatibility.
+func (v *VerticaDB) setDefaultTLSModes() {
+	if v.Spec.InterNodeTLS != nil && v.Spec.InterNodeTLS.Mode == "" {
+		v.Spec.InterNodeTLS.Mode = strings.ToUpper(tlsModeVerifyCA)
+	}
+	if v.Spec.HTTPSNMATLS != nil && v.Spec.HTTPSNMATLS.Mode == "" {
+		v.Spec.HTTPSNMATLS.Mode = strings.ToUpper(tlsModeTryVerify)
+	}
+	if v.Spec.ClientServerTLS != nil && v.Spec.ClientServerTLS.Mode == "" {
+		v.Spec.ClientServerTLS.Mode = strings.ToUpper(tlsModeTryVerify)
 	}
 }
 

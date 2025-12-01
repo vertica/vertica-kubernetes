@@ -5,10 +5,10 @@ metadata:
 spec:
   interNodeTLS:
     enabled: true
-    mode: TRY_VERIFY
+    mode: VERIFY_CA
     secret: custom-cert
 status:
   tlsConfigs:
     - name: interNode
       secret: custom-cert
-      mode: try_verify
+      mode: verify_ca
