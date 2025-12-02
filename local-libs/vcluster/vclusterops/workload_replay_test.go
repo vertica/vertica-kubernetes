@@ -186,6 +186,6 @@ func TestAggregateWorkloadReplayReportData(t *testing.T) {
 		},
 	}
 
-	actual := aggregateWorkloadReplayReportData(input)
+	actual := aggregateWorkloadReplayReportData(&input)
 	assert.Equal(t, expected, actual)
 }

@@ -16,6 +16,7 @@
 package vclusterops
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -34,8 +35,6 @@ type EpochInfo struct {
 	CatalogVersion string `json:"catalog_version"`
 	KSafety        string `json:"k_safety"`
 	Hostname       string `json:"hostname"`
-	AHMEpoch       string `json:"ahm_epoch"`
-	AHMTimestamp   string `json:"ahm_timestamp"`
 }
 
 type LastGoodEpoch struct {
@@ -191,7 +190,7 @@ func (vcc VClusterCommands) produceEpochInfoInstructions(vdb *VCoordinationDatab
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
 	nmaReturnEpochData := nmaEpochInfoRequestData{}
-	hostCatPathMap, err := buildHostCatalogPathMap(options.Hosts, vdb)
+	hostCatPathMap, err := getNodeInfoForEpoch(options.Hosts, vdb)
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +202,30 @@ func (vcc VClusterCommands) produceEpochInfoInstructions(vdb *VCoordinationDatab
 		&nmaHealthOp,
 		&nmaReturnEpochOp)
 	return instructions, nil
+}
+
+func getNodeInfoForEpoch(hosts []string, vdb *VCoordinationDatabase) (hostCatPathMap map[string]string, err error) {
+	hostCatPathMap = make(map[string]string)
+	var allErrors error
+	for _, host := range hosts {
+		nodeInfo := vdb.HostNodeMap[host]
+		if nodeInfo == nil {
+			return hostCatPathMap, fmt.Errorf("host %s has no saved info", host)
+		}
+		nodeName := nodeInfo.Name
+		catPath := nodeInfo.CatalogPath
+
+		if nodeName == "" {
+			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has empty name", host))
+		}
+		err = util.ValidateRequiredAbsPath(catPath, "catalog path")
+		if err != nil {
+			allErrors = errors.Join(allErrors, fmt.Errorf("host %s has problematic catalog path %s, details: %w", host, catPath, err))
+		}
+		hostCatPathMap[host] = catPath
+	}
+
+	return hostCatPathMap, allErrors
 }
 
 func (vcc VClusterCommands) produceGetEpochInstructions(options *VReturnEpochOptions,

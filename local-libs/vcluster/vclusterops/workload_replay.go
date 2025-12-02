@@ -33,6 +33,7 @@ type workloadReplayOptions struct {
 	Sandbox                   string
 	JobID                     int64
 	QuickReplay               bool
+	ParallelReplay            bool
 }
 
 type VWorkloadReplayOptions struct {
@@ -237,7 +238,7 @@ type WorkloadReplayReportData struct {
 }
 
 // Aggregate original captured workload and replay information into one struct that can be written to a CSV file
-func aggregateWorkloadReplayReportData(data workloadReplayData) []WorkloadReplayReportData {
+func aggregateWorkloadReplayReportData(data *workloadReplayData) []WorkloadReplayReportData {
 	reportData := []WorkloadReplayReportData{}
 
 	for index, originalRow := range data.originalWorkloadData {
@@ -269,7 +270,7 @@ func aggregateWorkloadReplayReportData(data workloadReplayData) []WorkloadReplay
 }
 
 // Save replay results as a CSV file
-func saveWorkloadReplayReportCSV(data workloadReplayData, replayResultsFileLocation string) error {
+func saveWorkloadReplayReportCSV(data *workloadReplayData, replayResultsFileLocation string) error {
 	reportData := aggregateWorkloadReplayReportData(data)
 
 	csvData, err := util.ConvertToCSVRows(reportData)
@@ -337,7 +338,7 @@ func (vcc VClusterCommands) VWorkloadReplay(ctx context.Context, options *VWorkl
 	vcc.Log.Info("VWorkloadReplay: Waiting for workload execution to finish.")
 	wg.Wait()
 
-	err = saveWorkloadReplayReportCSV(replayData, options.ReplayResultsFileLocation)
+	err = saveWorkloadReplayReportCSV(&replayData, options.ReplayResultsFileLocation)
 	if err != nil {
 		vcc.Log.PrintInfo("fail to save workload replay report CSV: %v", err)
 		return fmt.Errorf("fail to save workload replay report CSV: %v", err)
@@ -393,10 +394,11 @@ func (vcc VClusterCommands) produceWorkloadReplayInstructions(options *VWorkload
 		return instructions, err
 	}
 	nmaWorkloadReplayOp.quickReplay = options.QuickReplay
+	nmaWorkloadReplayOp.parallelReplay = options.ParallelReplay
 
 	instructions = append(instructions,
 		&nmaHealthOp,
-		&nmaWorkloadReplayOp,
+		nmaWorkloadReplayOp,
 	)
 
 	return instructions, nil
