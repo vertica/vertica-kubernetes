@@ -2462,7 +2462,12 @@ func (v *VerticaDB) GetSpecHTTPSNMATLSMode() string {
 }
 
 func (v *VerticaDB) GetHTTPSNMATLSMode() string {
-	return strings.ToLower(v.GetSpecHTTPSNMATLSMode())
+	// Default to TRY_VERIFY when mode is omitted and webhook is disabled.
+	mode := strings.ToLower(v.GetSpecHTTPSNMATLSMode())
+	if mode == "" && v.Spec.HTTPSNMATLS != nil {
+		return tlsModeTryVerify
+	}
+	return mode
 }
 
 // Get HTTPSNMATLS secret from spec or return "" if not found
@@ -2496,7 +2501,12 @@ func (v *VerticaDB) GetSpecInterNodeTLSMode() string {
 }
 
 func (v *VerticaDB) GetClientServerTLSMode() string {
-	return strings.ToLower(v.GetSpecClientServerTLSMode())
+	// Default to TRY_VERIFY when mode is omitted and webhook is disabled.
+	mode := strings.ToLower(v.GetSpecClientServerTLSMode())
+	if mode == "" && v.Spec.ClientServerTLS != nil {
+		return tlsModeTryVerify
+	}
+	return mode
 }
 
 func (v *VerticaDB) GetInterNodeTLSMode() string {
@@ -2505,6 +2515,9 @@ func (v *VerticaDB) GetInterNodeTLSMode() string {
 	// because on the server side, these modes are all equivalent (no hostname validation)
 	// and the server normalizes them to VERIFY_CA. This handles the case when webhooks
 	// are disabled.
+	if mode == "" && v.Spec.InterNodeTLS != nil {
+		return tlsModeVerifyCA
+	}
 	if mode == tlsModeTryVerify || mode == tlsModeVerifyFull {
 		return tlsModeVerifyCA
 	}

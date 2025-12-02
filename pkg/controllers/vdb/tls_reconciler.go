@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -53,7 +54,7 @@ func MakeTLSReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *TLSReconciler) Reconcile(ctx context.Context, request *ctrl.Request) (ctrl.Result, error) {
-	if err := h.updateTLSConfigEnabledInVdb(ctx); err != nil {
+	if err := h.updateTLSConfigDefaultsInVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || h.Vdb.IsMainClusterStopped() {
@@ -103,11 +104,12 @@ func (h *TLSReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, pf
 	}
 }
 
-// updateTLSConfigEnabledInVdb will set the TLS Enabled fields in the vdb spec if they
-// are nil. This is to handle the case where a user created a vdb with webhook
-// disabled and enabled field nil. In case they turn on the webhook later, we
-// do not want it to alter the enabled field.
-func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
+// updateTLSConfigDefaultsInVdb will set default values in the VerticaDB spec for TLS configs
+// when webhooks are disabled so the spec is never left with unset fields. This includes:
+// - Enabled: if nil, default to true (so webhook won't later flip it unexpectedly)
+// - Mode: if empty, default to TRY_VERIFY for HTTPS/NMA and ClientServer, and VERIFY_CA for InterNode
+// These defaults are applied together in a single write to avoid updating the VDB twice.
+func (h *TLSReconciler) updateTLSConfigDefaultsInVdb(ctx context.Context) error {
 	if !h.Vdb.ShouldSetTLSEnabled() {
 		return nil
 	}
@@ -121,14 +123,23 @@ func (h *TLSReconciler) updateTLSConfigEnabledInVdb(ctx context.Context) error {
 		if h.Vdb.Spec.HTTPSNMATLS != nil && h.Vdb.Spec.HTTPSNMATLS.Enabled == nil {
 			enabled := true
 			h.Vdb.Spec.HTTPSNMATLS.Enabled = &enabled
+			if h.Vdb.Spec.HTTPSNMATLS.Mode == "" {
+				h.Vdb.Spec.HTTPSNMATLS.Mode = strings.ToUpper("try_verify")
+			}
 		}
 		if h.Vdb.Spec.ClientServerTLS != nil && h.Vdb.Spec.ClientServerTLS.Enabled == nil {
 			enabled := true
 			h.Vdb.Spec.ClientServerTLS.Enabled = &enabled
+			if h.Vdb.Spec.ClientServerTLS.Mode == "" {
+				h.Vdb.Spec.ClientServerTLS.Mode = strings.ToUpper("try_verify")
+			}
 		}
 		if h.Vdb.Spec.InterNodeTLS != nil && h.Vdb.Spec.InterNodeTLS.Enabled == nil {
 			enabled := true
 			h.Vdb.Spec.InterNodeTLS.Enabled = &enabled
+			if h.Vdb.Spec.InterNodeTLS.Mode == "" {
+				h.Vdb.Spec.InterNodeTLS.Mode = strings.ToUpper("verify_ca")
+			}
 		}
 
 		return h.VRec.Client.Update(ctx, h.Vdb)
