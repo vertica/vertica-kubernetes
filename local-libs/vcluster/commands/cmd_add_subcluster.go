@@ -293,7 +293,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		} else {
 			// update new node info in config
 			UpdateDBConfig(&vdb, dbConfig, c.addSubclusterOptions.SandboxName, mainCluster)
-			writeErr := dbConfig.Write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
+			writeErr := dbConfig.write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
 			if writeErr != nil {
 				vcc.PrintWarning("Fail to update config file: %s", writeErr)
 				return nil
