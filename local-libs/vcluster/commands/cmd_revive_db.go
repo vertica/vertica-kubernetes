@@ -224,7 +224,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 	if configErr != nil {
 		// config file does not exist, neither main cluster nor sandbox has been revived yet.
 		// overwrite the config file.
-		err = c.overwriteConfig(vdb)
+		err = c.overwriteConfig(vdb, vcc.GetLog())
 		if err != nil {
 			vcc.DisplayWarning(err.Error())
 			return nil
@@ -234,7 +234,7 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 		// In this case, we update the existing config file instead of overwriting it.
 		dbConfig = *dbConfigPtr
 		UpdateDBConfig(vdb, &dbConfig, c.reviveDBOptions.Sandbox, c.reviveDBOptions.MainCluster)
-		writeErr := dbConfig.write(c.reviveDBOptions.ConfigPath, true /*forceOverwrite*/)
+		writeErr := dbConfig.write(c.reviveDBOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
 		if writeErr != nil {
 			vcc.DisplayWarning("Fail to update config file: %s", writeErr)
 			return nil
@@ -247,8 +247,9 @@ func (c *CmdReviveDB) Run(vcc vclusterops.ClusterCommands) error {
 	return nil
 }
 
-func (c *CmdReviveDB) overwriteConfig(vdb *vclusterops.VCoordinationDatabase) error {
-	err := writeConfig(vdb, true /*forceOverwrite*/)
+func (c *CmdReviveDB) overwriteConfig(
+	vdb *vclusterops.VCoordinationDatabase, logger vlog.Printer) error {
+	err := writeConfig(vdb, true /*forceOverwrite*/, logger)
 	if err != nil {
 		return fmt.Errorf("failed to write the configuration file: %s", err)
 	}

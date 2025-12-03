@@ -153,7 +153,7 @@ func (c *CmdStartSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
-	err = writeConfig(&vdb, true /*forceOverwrite*/)
+	err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
 	if err != nil {
 		vcc.DisplayWarning("fail to update config file, details: %s", err)
 	}

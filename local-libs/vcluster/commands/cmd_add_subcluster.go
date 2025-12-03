@@ -98,9 +98,17 @@ Examples:
 		false,
 		"Use existing depot directories for the new subcluster, must enforce same number of hosts with the existing depot dirs",
 	)
+	// hide this flag because this is an advanced use case associated with depot reusing
+	// users need to fully understand the depot reusing for using this hidden option
+	cmd.Flags().BoolVar(
+		&newCmd.addSubclusterOptions.VAddNodeOptions.SkipAutoStart,
+		skipAutoStartFlag,
+		false,
+		"Skip auto restarting the subcluster nodes after adding the subcluster",
+	)
 
 	// hide eon mode flag since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{eonModeFlag, useExistingDepotDirFlag})
+	hideLocalFlags(cmd, []string{eonModeFlag, useExistingDepotDirFlag, skipAutoStartFlag})
 
 	return cmd
 }
@@ -293,7 +301,7 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		} else {
 			// update new node info in config
 			UpdateDBConfig(&vdb, dbConfig, c.addSubclusterOptions.SandboxName, mainCluster)
-			writeErr := dbConfig.Write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
+			writeErr := dbConfig.write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
 			if writeErr != nil {
 				vcc.PrintWarning("Fail to update config file: %s", writeErr)
 				return nil

@@ -146,7 +146,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		options.SCName, options.DBName)
 
 	// write db info to vcluster config file
-	err = writeConfig(&vdb, true /*forceOverwrite*/)
+	err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
 	if err != nil {
 		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}

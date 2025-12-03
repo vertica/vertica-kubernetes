@@ -126,6 +126,7 @@ const (
 	forceLoadRemoteCatalog          = "force-load-remote-catalog"
 	epochFlag                       = "epoch"
 	epochKey                        = "epoch"
+	skipAutoStartFlag               = "skip-auto-start"
 )
 
 // Flag and key for database replication
