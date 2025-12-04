@@ -116,7 +116,7 @@ func (c *CmdConfigRecover) Run(vcc vclusterops.ClusterCommands) error {
 	}
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = c.recoverConfigOptions.AfterRevive
-	err = writeConfig(&vdb, true /*forceOverwrite*/)
+	err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
 	if err != nil {
 		return fmt.Errorf("failed to write the configuration file: %w", err)
 	}

@@ -131,7 +131,7 @@ func (c *CmdUpgradePart1) RunPostSandboxHook(subcluster string, vcc vclusterops.
 		return
 	}
 
-	if err := dbConfig.write(c.upgradeVerticaOptions.ConfigPath, true /*forceOverwrite*/); err != nil {
+	if err := dbConfig.write(c.upgradeVerticaOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog()); err != nil {
 		vcc.DisplayWarning(util.FailToWriteToConfig + err.Error())
 		return
 	}
