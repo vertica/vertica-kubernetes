@@ -2,9 +2,13 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-inter-node-cert-rotate
+spec:
+  interNodeTLS:
+    enabled: true
+    mode: ENABLE
+    secret: custom-cert
 status:
   tlsConfigs:
-    - name: httpsNMA
     - name: interNode
       secret: custom-cert
-      mode: verify_ca
+      mode: enable

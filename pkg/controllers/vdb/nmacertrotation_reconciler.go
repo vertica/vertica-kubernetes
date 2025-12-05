@@ -120,7 +120,8 @@ func (h *NMACertRotationReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 // nmaCertRotationNeeded returns true if nma cert rotation is needed
 func (h *NMACertRotationReconciler) nmaCertRotationNeeded() bool {
-	if !h.Vdb.IsAnyTLSAuthEnabledWithMinVersion() {
+	// NMA cert rotation is only needed for HTTPS NMA or Client-Server TLS, not for InterNode TLS
+	if !h.Vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion() && !h.Vdb.IsClientServerTLSAuthEnabledWithMinVersion() {
 		return false
 	}
 	// no-op if tls update has not occurred

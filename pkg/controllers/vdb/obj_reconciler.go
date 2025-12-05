@@ -262,19 +262,43 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 }
 
 func (o *ObjReconciler) checkTLSSecrets(ctx context.Context) (ctrl.Result, error) {
-	tlsSecrets := map[string]string{
-		"NMA TLS": o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
+	tlsConfigs := []struct {
+		name      string
+		configKey string
+		enabled   bool
+		secret    string
+	}{
+		{
+			name:      "NMA TLS",
+			configKey: vapi.HTTPSNMATLSConfigName,
+			enabled:   o.Vdb.IsHTTPSNMATLSAuthEnabled(),
+			secret:    o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
+		},
+		{
+			name:      "Client Server TLS",
+			configKey: vapi.ClientServerTLSConfigName,
+			enabled:   o.Vdb.IsClientServerTLSAuthEnabled(),
+			secret:    o.Vdb.GetClientServerTLSSecretForConfigMap(),
+		},
+		{
+			name:      "Inter-Node TLS",
+			configKey: vapi.InterNodeTLSConfigName,
+			enabled:   o.Vdb.IsInterNodeTLSAuthEnabled(),
+			secret:    o.Vdb.GetInterNodeTLSSecret(),
+		},
 	}
-	if o.Vdb.IsClientServerTLSAuthEnabled() {
-		tlsSecrets["Client Server TLS"] = o.Vdb.GetClientServerTLSSecretForConfigMap()
-	}
+
 	dbReconciler := o.Rec.(*VerticaDBReconciler)
 	certCache := dbReconciler.CacheManager.GetCertCacheForVdb(o.Vdb.Namespace, o.Vdb.Name)
-	for k, tlsSecret := range tlsSecrets {
-		if tlsSecret != "" && !certCache.IsCertInCache(tlsSecret) {
+	for _, tlsConfig := range tlsConfigs {
+		// Skip if TLS config is not enabled
+		if !tlsConfig.enabled {
+			continue
+		}
+		if tlsConfig.secret != "" && !certCache.IsCertInCache(tlsConfig.secret) {
 			keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-			if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, k,
-				names.GenNamespacedName(o.Vdb, tlsSecret), keyNames); verrors.IsReconcileAborted(res, err) {
+			if res, err := o.SecretFetcher.CheckSecretHasKeys(ctx, tlsConfig.name,
+				names.GenNamespacedName(o.Vdb, tlsConfig.secret), keyNames); verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 		}
@@ -853,20 +877,42 @@ func (o *ObjReconciler) shouldPreserveStsSize(curSts, expSts *appsv1.StatefulSet
 
 // reconcileTLSSecrets will update tls secrets
 func (o *ObjReconciler) reconcileTLSSecrets(ctx context.Context) error {
-	if !o.Vdb.IsClientServerTLSAuthEnabledWithMinVersion() || o.Vdb.ShouldRemoveTLSSecret() {
+	if !o.Vdb.IsAnyTLSAuthEnabledWithMinVersion() || o.Vdb.ShouldRemoveTLSSecret() {
 		return nil
 	}
 
-	tlsSecrets := []string{
-		o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
-		o.Vdb.GetClientServerTLSSecretForConfigMap(),
+	tlsConfigs := []struct {
+		configName string
+		enabled    bool
+		secret     string
+	}{
+		{
+			configName: vapi.HTTPSNMATLSConfigName,
+			enabled:    o.Vdb.IsHTTPSNMATLSAuthEnabledWithMinVersion(),
+			secret:     o.Vdb.GetHTTPSNMATLSSecretForConfigMap(),
+		},
+		{
+			configName: vapi.ClientServerTLSConfigName,
+			enabled:    o.Vdb.IsClientServerTLSAuthEnabledWithMinVersion(),
+			secret:     o.Vdb.GetClientServerTLSSecretForConfigMap(),
+		},
+		{
+			configName: vapi.InterNodeTLSConfigName,
+			enabled:    o.Vdb.IsInterNodeTLSAuthEnabledWithMinVersion(),
+			secret:     o.Vdb.GetInterNodeTLSSecret(),
+		},
 	}
-	for _, tlsSecret := range tlsSecrets {
-		// non-k8s secrets are ignored
-		if !secrets.IsK8sSecret(tlsSecret) {
+
+	for _, tlsConfig := range tlsConfigs {
+		// Skip if TLS config is not enabled
+		if !tlsConfig.enabled {
 			continue
 		}
-		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsSecret)
+		// non-k8s secrets are ignored
+		if !secrets.IsK8sSecret(tlsConfig.secret) {
+			continue
+		}
+		err := o.updateOwnerReferenceInTLSSecret(ctx, tlsConfig.secret)
 		if err != nil {
 			return err
 		}

@@ -18,7 +18,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Starting tls cert rotation for Internode with secret name cert1 and mode try_verify
+message: Starting tls cert rotation for Internode with secret name cert1 and mode verify_ca
 ---
 apiVersion: v1
 kind: Event
@@ -29,7 +29,7 @@ involvedObject:
   apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-auto-cert-rotate
-message: Successfully rotated Internode tls cert with secret name cert1 and mode try_verify
+message: Successfully rotated Internode tls cert with secret name cert1 and mode verify_ca
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB

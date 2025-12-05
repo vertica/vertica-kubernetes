@@ -966,24 +966,22 @@ type DBTLSConfig struct {
 	CipherSuites string `json:"cipherSuites,omitempty"`
 }
 
-// Used for storing TLS configuration for either httpsNMATLS or ClientServerTLS
+// Used for storing TLS configuration, such as httpsNMATLS or ClientServerTLS or InterNodeTLS
 type TLSConfigSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials; this can be used either by Vertica's
+	// A secret that contains the TLS credentials; this can be used by Vertica's
 	// embedded https service and node management agent (NMA) or to authenticate Vertica
-	// clients' certificates. If this is empty, the operator will create a secret to use
-	// and add the name of the generated secret in this field. When set, the secret must
-	// have the following keys defined: tls.key, tls.crt and ca.crt. To store this secret outside of
-	// Kubernetes, you can use a secret path reference prefix, such as gsm://.
-	// Everything after the prefix is the name of the secret in the service you
-	// are storing.
+	// clients' certificates or for inter-node communication. If this is empty,
+	// the operator will create a secret to use and add the name of the generated secret
+	// in this field. When set, the secret must have the following keys defined: tls.key, tls.crt and ca.crt.
+	// To store this secret outside of Kubernetes, you can use a secret path reference prefix, such as gsm://.
+	// Everything after the prefix is the name of the secret in the service you are storing.
 	Secret string `json:"secret,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:disable","urn:alm:descriptor:com.tectonic.ui:select:enable","urn:alm:descriptor:com.tectonic.ui:select:TRY_VERIFY","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_CA","urn:alm:descriptor:com.tectonic.ui:select:VERIFY_FULL"}
-	// +kubebuilder:default:=TRY_VERIFY
 	// +kubebuilder:validation:Optional
-	// This field configures the Vertica's connection mode for HTTPS/NMA or client-server TLS.
+	// This field configures the Vertica's connection mode for HTTPS/NMA, client-server TLS, or inter-node TLS.
 	// Choose one of the following TLSMODEs, listed in ascending security:
 	// - TRY_VERIFY: Establishes a TLS connection if one of the following is true:
 	//   - The client presents a valid certificate.
@@ -991,6 +989,12 @@ type TLSConfigSpec struct {
 	//   If the client presents an invalid certificate, the connection is rejected.
 	// - VERIFY_CA: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA.
 	//   If the client does not present a client certificate, the connection is rejected.
+	// - VERIFY_FULL: Connection succeeds if Vertica verifies that the client certificate is from a trusted CA
+	//   and that the common-name in the certificate matches the host name of the client.
+	//   If the client does not present a client certificate, the connection is rejected.
+	// Note: TRY_VERIFY and VERIFY_FULL are not supported for inter-node TLS.
+	// The default for HTTPS/NMA and client-server TLS is TRY_VERIFY.
+	// The default for inter-node TLS is VERIFY_CA.
 	Mode string `json:"mode,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
@@ -1155,7 +1159,7 @@ type LicenseInfo struct {
 type TLSConfigStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Represents what this TLS config is used for
-	// For example, httpsNMA or clientServer
+	// For example, httpsNMA or clientServer or interNode
 	Name string `json:"name"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Name of the secret

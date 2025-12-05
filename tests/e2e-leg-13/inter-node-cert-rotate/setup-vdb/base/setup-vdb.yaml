@@ -28,9 +28,7 @@ spec:
     catalogPath: /catalog
   dbName: vertdb
   interNodeTLS:
-    mode: TRY_VERIFY
-  httpsNMATLS:
-    mode: TRY_VERIFY
+    enabled: true
   subclusters:
     - name: sc1
       size: 3
