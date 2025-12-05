@@ -183,7 +183,7 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 	// update config file after running re_ip
 	if canUpdateConfig {
 		c.UpdateConfig(dbConfig)
-		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
+		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
 		if err != nil {
 			vcc.DisplayWarning("Failed to update configuration file: %v\n", err)
 		}

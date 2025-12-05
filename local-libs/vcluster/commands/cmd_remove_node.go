@@ -155,7 +155,7 @@ func (c *CmdRemoveNode) Run(vcc vclusterops.ClusterCommands) error {
 	}
 
 	// write db info to vcluster config file
-	err = writeConfig(&vdb, true /*forceOverwrite*/)
+	err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
 	if err != nil {
 		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}
