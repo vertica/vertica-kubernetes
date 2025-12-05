@@ -25,21 +25,21 @@ import (
 type httpsCreateNodesDepotOp struct {
 	opBase
 	opHTTPSBase
-	HostNodeMap vHostNodeMap
-	DepotSize   string
+	HostNodeMap    vHostNodeMap
+	DepotSize      string
+	InitiatorHosts []string
 }
 
-// makeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
-func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
-	useHTTPPassword bool, userName string, httpsPassword *string,
-) (httpsCreateNodesDepotOp, error) {
+func makeHTTPSCreateNodesDepotOpHelper(vdb *VCoordinationDatabase, newHosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string, initiatorHost []string) (httpsCreateNodesDepotOp, error) {
 	op := httpsCreateNodesDepotOp{}
 	op.name = "HTTPSCreateNodesDepotOp"
 	op.description = "Create depot for new nodes"
-	op.hosts = nodes
+	op.hosts = newHosts
 	op.useHTTPPassword = useHTTPPassword
 	op.HostNodeMap = vdb.HostNodeMap
 	op.DepotSize = vdb.DepotSize
+	op.InitiatorHosts = initiatorHost
 
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
@@ -51,7 +51,37 @@ func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
 	return op, nil
 }
 
+// makeHTTPSCreateNodesDepotOp will make an op that call vertica-http service to create depot for the new nodes
+func makeHTTPSCreateNodesDepotOp(vdb *VCoordinationDatabase, nodes []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (httpsCreateNodesDepotOp, error) {
+	var emptyInit []string
+	op, err := makeHTTPSCreateNodesDepotOpHelper(vdb, nodes, useHTTPPassword, userName, httpsPassword, emptyInit /*call ops on new hosts*/)
+
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
+}
+
+func makeHTTPSCreateNodesDepotNoAutoStartOp(vdb *VCoordinationDatabase, hosts, newHosts []string,
+	useHTTPPassword bool, userName string, httpsPassword *string,
+) (httpsCreateNodesDepotOp, error) {
+	op, err := makeHTTPSCreateNodesDepotOpHelper(vdb, newHosts, useHTTPPassword, userName, httpsPassword, hosts)
+
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
+}
+
 func (op *httpsCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error {
+	initiatorHost := ""
+	if len(op.InitiatorHosts) > 0 {
+		initiatorHost = op.InitiatorHosts[0]
+	}
 	for _, host := range hosts {
 		httpRequest := hostHTTPRequest{}
 		httpRequest.Method = PostMethod
@@ -65,15 +95,23 @@ func (op *httpsCreateNodesDepotOp) setupClusterHTTPRequest(hosts []string) error
 		if op.DepotSize != "" {
 			httpRequest.QueryParams["size"] = op.DepotSize
 		}
-		op.clusterHTTPRequest.RequestCollection[host] = httpRequest
+		if initiatorHost != "" {
+			op.clusterHTTPRequest.RequestCollection[initiatorHost] = httpRequest
+		} else {
+			op.clusterHTTPRequest.RequestCollection[host] = httpRequest
+		}
 	}
 
 	return nil
 }
 
 func (op *httpsCreateNodesDepotOp) prepare(execContext *opEngineExecContext) error {
-	execContext.dispatcher.setup(op.hosts)
+	execHosts := op.hosts
+	if len(op.InitiatorHosts) > 0 {
+		execHosts = op.InitiatorHosts
+	}
 
+	execContext.dispatcher.setup(execHosts)
 	return op.setupClusterHTTPRequest(op.hosts)
 }
 
@@ -87,7 +125,6 @@ func (op *httpsCreateNodesDepotOp) execute(execContext *opEngineExecContext) err
 
 func (op *httpsCreateNodesDepotOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
-
 	// every host needs to have a successful result, otherwise we fail this op
 	// because we want depot created successfully on all hosts
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -114,12 +151,15 @@ func (op *httpsCreateNodesDepotOp) processResult(_ *opEngineExecContext) error {
 			continue
 		}
 
-		// verify if the node name and the depot location are correct
-		if resp["node"] != op.HostNodeMap[host].Name || resp["depot_location"] != op.HostNodeMap[host].DepotPath {
-			err := fmt.Errorf(`[%s] should create depot %s on node %s, but created depot %s on node %s from host %s`,
-				op.name, op.HostNodeMap[host].DepotPath, op.HostNodeMap[host].Name, resp["depot_location"], resp["node"], host)
-			allErrs = errors.Join(allErrs, err)
-			// not break here because we want to log all the failed nodes
+		// initiator host being empty means that we sent a per-node (new host) request, need to make sure the host matches the node name
+		if len(op.InitiatorHosts) == 0 {
+			// verify if the node name and the depot location are correct
+			if (resp["node"] != op.HostNodeMap[host].Name) || (resp["depot_location"] != op.HostNodeMap[host].DepotPath) {
+				err := fmt.Errorf(`[%s] should create depot %s on node %s, but created depot %s on node %s from host %s`,
+					op.name, op.HostNodeMap[host].DepotPath, op.HostNodeMap[host].Name, resp["depot_location"], resp["node"], host)
+				allErrs = errors.Join(allErrs, err)
+				// not break here because we want to log all the failed nodes
+			}
 		}
 	}
 	return allErrs

@@ -285,6 +285,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if readConfigErr == nil && options.IsEon {
+		// TODO: add log for this too
 		c.UpdateConfigFileForEon(vdb, vcc)
 	}
 
@@ -300,7 +301,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 func (c *CmdStartDB) UpdateConfigFileForEon(vdb *vclusterops.VCoordinationDatabase, vcc vclusterops.ClusterCommands) {
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = false
-	err := writeConfig(vdb, true /*forceOverwrite*/)
+	err := writeConfig(vdb, true /*forceOverwrite*/, vcc.GetLog())
 	if err != nil {
 		vcc.DisplayWarning("fail to update config file, details: %s", err)
 	}
