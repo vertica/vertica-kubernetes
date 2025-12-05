@@ -62,6 +62,7 @@ const (
 	RestartNMACmd
 	PollConnectionDrainingCmd
 	UpgradeVerticaCmd
+	CloneSubclusterPropertiesCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -120,6 +121,7 @@ var cmdStringMap = map[CmdType]string{
 	RestartNMACmd:                "restart_nma",
 	PollConnectionDrainingCmd:    "poll_connection_draining",
 	UpgradeVerticaCmd:            "upgrade_vertica",
+	CloneSubclusterPropertiesCmd: "clone_subcluster_properties",
 }
 
 func (cmd CmdType) CmdString() string {

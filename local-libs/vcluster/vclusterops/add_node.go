@@ -71,6 +71,10 @@ type VAddNodeOptions struct {
 	Sls bool
 	// indicate wether the sandbox is being created for online upgrade
 	ForUpgrade bool
+	// Clone source subcluster name
+	CloneSC string
+	// skip auto-start, rebalance_shards and sync catalog
+	SkipAutoStart bool
 }
 
 func VAddNodeOptionsFactory() VAddNodeOptions {
@@ -89,6 +93,8 @@ func (options *VAddNodeOptions) setDefaultValues() {
 	// try to retrieve the timeout from the environment variable
 	// otherwise, set the default value (300 seconds) to the timeout
 	options.TimeOut = util.GetEnvInt("NODE_STATE_POLLING_TIMEOUT", util.DefaultTimeoutSeconds)
+
+	options.SkipAutoStart = false
 }
 
 func (options *VAddNodeOptions) validateEonOptions() error {
@@ -155,7 +161,13 @@ func (options *VAddNodeOptions) analyzeOptions() (err error) {
 }
 
 func (options *VAddNodeOptions) validateAnalyzeOptions(logger vlog.Printer) error {
-	err := options.validateParseOptions(logger)
+	// need username for Go client authentication
+	err := options.validateUserName(logger)
+	if err != nil {
+		return err
+	}
+
+	err = options.validateParseOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -405,6 +417,7 @@ func (vcc VClusterCommands) trimNodesInCatalog(vdb *VCoordinationDatabase,
 //   - Create depot on the new node (Eon mode only)
 //   - Sync catalog
 //   - Rebalance shards on subcluster (Eon mode only)
+//   - Clone subcluster properties (if CloneSC is set)
 func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabase,
 	options *VAddNodeOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
@@ -420,7 +433,7 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 
 	if vdb.IsEon {
 		httpsFindSubclusterOp, e := makeHTTPSFindSubclusterOp(
-			allExistingHosts, usePassword, username, password, options.SCName,
+			allExistingHosts, options.usePassword, options.UserName, options.Password, options.SCName,
 			true /*ignore not found*/, AddNodeCmd)
 		if e != nil {
 			return instructions, e
@@ -432,6 +445,64 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	// require to have the same vertica version
 	nmaVerticaVersionOp := makeNMAVerticaVersionOpWithVDB(true /*hosts need to have the same Vertica version*/, vdb)
 	instructions = append(instructions, &nmaVerticaVersionOp)
+
+	// Node creation operations
+	instructions, err := vcc.prepareNodeCreationInstructions(vdb, options, instructions, initiatorHost)
+	if err != nil {
+		return instructions, err
+	}
+
+	// Handle sandbox-specific or main cluster operations
+	instructions, err = vcc.prepareSandboxInstructions(vdb, options, instructions,
+		initiatorHost, usePassword, username, password, &sandboxHosts)
+	if err != nil {
+		return instructions, err
+	}
+
+	// we will remove the nil parameters in VER-88401 by adding them in execContext
+	produceTransferConfigOps(&instructions, nil, vdb.HostList, vdb, /*db configurations retrieved from a running db*/
+		&options.Sandbox /*Sandbox name*/)
+
+	// VE-5101644: SkipAutoStart option for advanced use case
+	if options.SkipAutoStart {
+		return vcc.prepareAdditionalEonInstructions(vdb, options, instructions, username, usePassword, initiatorHost, newHosts)
+	}
+
+	nmaStartNewNodesOp := makeNMAStartNodeWithSandboxOpWithVDB(newHosts, options.StartUpConf, options.Sandbox, vdb)
+	var pollNodeStateOp clusterOp
+	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, options.usePassword, options.UserName, options.Password, options.TimeOut)
+	if err != nil {
+		return instructions, err
+	}
+	httpsPollNodeStateOp.cmdType = AddNodeCmd
+	pollNodeStateOp = &httpsPollNodeStateOp
+	instructions = append(instructions,
+		&nmaStartNewNodesOp,
+		pollNodeStateOp,
+	)
+
+	// Additional Eon instructions
+	instructions, err = vcc.prepareAdditionalEonInstructions(vdb, options, instructions,
+		username, usePassword, initiatorHost, newHosts)
+	if err != nil {
+		return instructions, err
+	}
+
+	// Clone subcluster properties if CloneSC is set
+	instructions, err = vcc.prepareCloneInstructions(vdb, options, instructions, username, password)
+	if err != nil {
+		return instructions, err
+	}
+
+	return instructions, nil
+}
+
+// prepareNodeCreationInstructions prepares instructions for node creation
+func (vcc VClusterCommands) prepareNodeCreationInstructions(
+	vdb *VCoordinationDatabase,
+	options *VAddNodeOptions,
+	instructions []clusterOp,
+	initiatorHost []string) ([]clusterOp, error) {
 	// this is a copy of the original HostNodeMap that only
 	// contains the hosts to add.
 	newHostNodeMap := vdb.copyHostNodeMap(options.NewHosts)
@@ -440,13 +511,15 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	if err != nil {
 		return instructions, err
 	}
+
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(vdb.HostList)
+
 	createNodeConfig := HTTPSCreateNodeOpConfig{
-		NewNodeHosts:     newHosts,
+		NewNodeHosts:     options.NewHosts,
 		BootstrapHosts:   initiatorHost,
-		UseHTTPPassword:  usePassword,
-		UserName:         username,
-		HTTPSPassword:    password,
+		UseHTTPPassword:  options.usePassword,
+		UserName:         options.UserName,
+		HTTPSPassword:    options.Password,
 		VDB:              vdb,
 		SCName:           options.SCName,
 		ComputeGroupName: options.ComputeGroup,
@@ -456,26 +529,42 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 	if err != nil {
 		return instructions, err
 	}
-	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, usePassword, username, password)
+
+	httpsReloadSpreadOp, err := makeHTTPSReloadSpreadOpWithInitiator(initiatorHost, options.usePassword, options.UserName, options.Password)
 	if err != nil {
 		return instructions, err
 	}
+
 	instructions = append(instructions,
 		&nmaPrepareDirectoriesOp,
 		&nmaNetworkProfileOp,
 		&httpsCreateNodeOp,
 		&httpsReloadSpreadOp,
 	)
+
+	return instructions, nil
+}
+
+// prepareSandboxInstructions adds sandbox-specific or main cluster restart instructions
+func (vcc VClusterCommands) prepareSandboxInstructions(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions,
+	instructions []clusterOp,
+	initiatorHost []string,
+	usePassword bool,
+	username string,
+	password *string,
+	sandboxHosts *[]string) ([]clusterOp, error) {
 	if options.Sandbox != util.MainClusterSandbox {
 		httpsRestartUpCommandOp, err := makeHTTPSStartUpCommandWithSandboxOp(usePassword, username, password, vdb, options.Sandbox)
 		if err != nil {
 			return instructions, err
 		}
 		instructions = append(instructions, &httpsRestartUpCommandOp)
+
 		if !options.AlreadySandboxed {
 			httpsSandboxSubclusterOp, err := makeHTTPSandboxingForAddScOp(initiatorHost, vcc.Log, options.SCName,
 				options.Sandbox, usePassword, username, password, options.SaveRp, options.Imeta, options.Sls, options.ForUpgrade,
-				&sandboxHosts)
+				sandboxHosts)
 			if err != nil {
 				return instructions, err
 			}
@@ -488,24 +577,8 @@ func (vcc VClusterCommands) produceAddNodeInstructions(vdb *VCoordinationDatabas
 		}
 		instructions = append(instructions, &httpsRestartUpCommandOp)
 	}
-	// we will remove the nil parameters in VER-88401 by adding them in execContext
-	produceTransferConfigOps(&instructions, nil, vdb.HostList, vdb, /*db configurations retrieved from a running db*/
-		&options.Sandbox /*Sandbox name*/)
 
-	nmaStartNewNodesOp := makeNMAStartNodeWithSandboxOpWithVDB(newHosts, options.StartUpConf, options.Sandbox, vdb)
-	var pollNodeStateOp clusterOp
-	httpsPollNodeStateOp, err := makeHTTPSPollNodeStateOp(newHosts, usePassword, username, password, options.TimeOut)
-	if err != nil {
-		return instructions, err
-	}
-	httpsPollNodeStateOp.cmdType = AddNodeCmd
-	pollNodeStateOp = &httpsPollNodeStateOp
-	instructions = append(instructions,
-		&nmaStartNewNodesOp,
-		pollNodeStateOp,
-	)
-	return vcc.prepareAdditionalEonInstructions(vdb, options, instructions,
-		username, usePassword, initiatorHost, newHosts)
+	return instructions, nil
 }
 
 func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationDatabase,
@@ -514,17 +587,26 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 	username string, usePassword bool,
 	initiatorHost, newHosts []string) ([]clusterOp, error) {
 	if vdb.UseDepot {
-		httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vdb,
-			newHosts, usePassword, username, options.Password)
-		if err != nil {
-			return instructions, err
+		if options.SkipAutoStart {
+			httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotNoAutoStartOp(vdb,
+				initiatorHost, newHosts, usePassword, username, options.Password)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsCreateNodesDepotOp)
+		} else {
+			httpsCreateNodesDepotOp, err := makeHTTPSCreateNodesDepotOp(vdb,
+				newHosts, options.usePassword, options.UserName, options.Password)
+			if err != nil {
+				return instructions, err
+			}
+			instructions = append(instructions, &httpsCreateNodesDepotOp)
 		}
-		instructions = append(instructions, &httpsCreateNodesDepotOp)
 	}
 
 	if vdb.IsEon {
 		if options.IfSyncCatalog {
-			httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, usePassword, username, options.Password, AddNodeSyncCat)
+			httpsSyncCatalogOp, err := makeHTTPSSyncCatalogOp(initiatorHost, options.usePassword, options.UserName, options.Password, AddNodeSyncCat)
 			if err != nil {
 				return instructions, err
 			}
@@ -535,7 +617,7 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 		// Only ignore the specified option if compute nodes were added with no trimming.
 		if !*options.SkipRebalanceShards && (options.ComputeGroup == "" || len(options.ExpectedNodeNames) != 0) {
 			httpsRBSCShardsOp, err := makeHTTPSRebalanceSubclusterShardsOp(
-				initiatorHost, usePassword, username, options.Password, options.SCName)
+				initiatorHost, options.usePassword, options.UserName, options.Password, options.SCName)
 			if err != nil {
 				return instructions, err
 			}
@@ -543,6 +625,37 @@ func (vcc VClusterCommands) prepareAdditionalEonInstructions(vdb *VCoordinationD
 		}
 	}
 
+	return instructions, nil
+}
+
+// prepareCloneInstructions adds clone subcluster properties instruction if CloneSC is set.
+// This is called after nodes are added to clone properties from the source subcluster.
+func (vcc VClusterCommands) prepareCloneInstructions(vdb *VCoordinationDatabase,
+	options *VAddNodeOptions,
+	instructions []clusterOp,
+	username string,
+	password *string) ([]clusterOp, error) {
+	if options.CloneSC == "" {
+		return instructions, nil
+	}
+
+	vcc.Log.Info("Adding clone subcluster properties instruction",
+		"source", options.CloneSC,
+		"target", options.SCName)
+
+	cloneOp, err := makeNMACloneSubclusterPropertiesOp(
+		vdb.HostList,
+		options.DBName,
+		username,
+		password,
+		options.CloneSC,
+		options.SCName,
+	)
+	if err != nil {
+		return instructions, err
+	}
+
+	instructions = append(instructions, &cloneOp)
 	return instructions, nil
 }
 

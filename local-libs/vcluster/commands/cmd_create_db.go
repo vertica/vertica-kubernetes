@@ -298,13 +298,13 @@ func (c *CmdCreateDB) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.DisplayInfo("Successfully created a database with name [%s]", vdb.Name)
 
 	// write db info to vcluster config file
-	err := writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
+	err := writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile, vcc.GetLog())
 	if err != nil {
 		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 		if dbOptions.ConfigPath != defaultConfigFilePath {
 			vcc.DisplayWarning("Attempting writing to default config file path: %s", defaultConfigFilePath)
 			dbOptions.ConfigPath = defaultConfigFilePath
-			err = writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile)
+			err = writeConfig(&vdb, c.createDBOptions.ForceOverwriteFile, vcc.GetLog())
 			if err != nil {
 				vcc.DisplayWarning("Failed to write the configuration file to default path: %s", err)
 			}
