@@ -48,7 +48,7 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
-	if timeout != nil && *timeout != 0 {
+	if timeout != nil && *timeout >= 0 {
 		op.RequestParams["timeout"] = strconv.Itoa(*timeout)
 	}
 	op.RequestParams["forceKill"] = strconv.FormatBool(forceKill)
@@ -61,6 +61,7 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 		op.userName = userName
 		op.httpsPassword = httpsPassword
 	}
+
 	return op, nil
 }
 
