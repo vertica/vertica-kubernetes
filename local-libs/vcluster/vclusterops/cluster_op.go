@@ -615,6 +615,7 @@ type ClusterCommands interface {
 	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
+	VReplaceNode(options *VReplaceNodeOptions) (VCoordinationDatabase, error)
 	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
 	VReplicationStatus(options *VReplicationStatusDatabaseOptions) (*ReplicationStatusResponse, error)
 	VRestartNMA(options *VRestartNMAOptions) error

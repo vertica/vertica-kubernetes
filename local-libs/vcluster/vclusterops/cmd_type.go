@@ -13,6 +13,7 @@ const (
 	StartNodeCmd
 	StopNodeCmd
 	RestartNodeCmd
+	ReplaceNodeCmd
 	AddSubclusterCmd
 	RemoveSubclusterCmd
 	StopSubclusterCmd
@@ -74,6 +75,7 @@ var cmdStringMap = map[CmdType]string{
 	StartNodeCmd:                 "start_node",
 	StopNodeCmd:                  "stop_node",
 	RestartNodeCmd:               "restart_node",
+	ReplaceNodeCmd:               "replace_node",
 	AddSubclusterCmd:             "add_subcluster",
 	RemoveSubclusterCmd:          "remove_subcluster",
 	StopSubclusterCmd:            "stop_subcluster",
