@@ -127,6 +127,7 @@ const (
 	epochFlag                       = "epoch"
 	epochKey                        = "epoch"
 	skipAutoStartFlag               = "skip-auto-start"
+	restartPolicyFlag               = "policy"
 )
 
 // Flag and key for database replication
@@ -264,6 +265,7 @@ const (
 	scrutinizeSubCmd        = "scrutinize"
 	showRestorePointsSubCmd = "show_restore_points"
 	installPkgSubCmd        = "install_packages"
+	SetRestartPolicy        = "set_restart_policy"
 	// hidden Cmds (for internal testing only)
 	promoteSandboxSubCmd    = "promote_sandbox"
 	createArchiveCmd        = "create_archive"
@@ -642,6 +644,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdShowRestorePoints(),
 		makeCmdInstallPackages(),
 		makeCmdReturnEpoch(),
+		makeCmdSetRestartPolicy(),
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),

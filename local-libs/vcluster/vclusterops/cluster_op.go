@@ -639,6 +639,7 @@ type ClusterCommands interface {
 	VListPackages(options *VListPackagesOptions) (*ListPackageStatus, error)
 	VWorkloadCapture(options *VWorkloadCaptureOptions) error
 	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
+	VSetRestartPolicy(options *VSetRestartPolicyOptions) error
 }
 
 type VClusterCommandsLogger struct {
