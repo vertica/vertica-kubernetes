@@ -13,6 +13,7 @@ const (
 	StartNodeCmd
 	StopNodeCmd
 	RestartNodeCmd
+	ReplaceNodeCmd
 	AddSubclusterCmd
 	RemoveSubclusterCmd
 	StopSubclusterCmd
@@ -62,6 +63,7 @@ const (
 	RestartNMACmd
 	PollConnectionDrainingCmd
 	UpgradeVerticaCmd
+	CloneSubclusterPropertiesCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -74,6 +76,7 @@ var cmdStringMap = map[CmdType]string{
 	StartNodeCmd:                 "start_node",
 	StopNodeCmd:                  "stop_node",
 	RestartNodeCmd:               "restart_node",
+	ReplaceNodeCmd:               "replace_node",
 	AddSubclusterCmd:             "add_subcluster",
 	RemoveSubclusterCmd:          "remove_subcluster",
 	StopSubclusterCmd:            "stop_subcluster",
@@ -120,6 +123,7 @@ var cmdStringMap = map[CmdType]string{
 	RestartNMACmd:                "restart_nma",
 	PollConnectionDrainingCmd:    "poll_connection_draining",
 	UpgradeVerticaCmd:            "upgrade_vertica",
+	CloneSubclusterPropertiesCmd: "clone_subcluster_properties",
 }
 
 func (cmd CmdType) CmdString() string {
