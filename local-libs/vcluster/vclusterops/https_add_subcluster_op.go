@@ -30,16 +30,18 @@ type httpsAddSubclusterOp struct {
 	scName             string
 	isSecondary        bool
 	ctlSetSize         int
+	cloneSC            string
 }
 
 func makeHTTPSAddSubclusterOp(useHTTPPassword bool, userName string, httpsPassword *string,
-	scName string, isPrimary bool, ctlSetSize int) (httpsAddSubclusterOp, error) {
+	scName string, isPrimary bool, ctlSetSize int, cloneSC string) (httpsAddSubclusterOp, error) {
 	op := httpsAddSubclusterOp{}
 	op.name = "HTTPSAddSubclusterOp"
 	op.description = "Add subcluster to catalog"
 	op.scName = scName
 	op.isSecondary = !isPrimary
 	op.ctlSetSize = ctlSetSize
+	op.cloneSC = cloneSC
 
 	op.useHTTPPassword = useHTTPPassword
 	if useHTTPPassword {
@@ -54,8 +56,9 @@ func makeHTTPSAddSubclusterOp(useHTTPPassword bool, userName string, httpsPasswo
 }
 
 type addSubclusterRequestData struct {
-	IsSecondary bool `json:"is_secondary"`
-	CtlSetSize  int  `json:"control_set_size,omitempty"`
+	IsSecondary        *bool   `json:"is_secondary,omitempty"`
+	CtlSetSize         *int    `json:"control_set_size,omitempty"`
+	LikeSubclusterName *string `json:"like_subcluster_name,omitempty"`
 }
 
 func (op *httpsAddSubclusterOp) setupRequestBody(hosts []string) error {
@@ -63,8 +66,23 @@ func (op *httpsAddSubclusterOp) setupRequestBody(hosts []string) error {
 
 	for _, host := range hosts {
 		addSubclusterData := addSubclusterRequestData{}
-		addSubclusterData.IsSecondary = op.isSecondary
-		addSubclusterData.CtlSetSize = op.ctlSetSize
+
+		if op.cloneSC != "" {
+			// When using --like, only send like_subcluster_name
+			addSubclusterData.LikeSubclusterName = &op.cloneSC
+			op.logger.PrintInfo("[%s] Using LIKE: source='%s', target='%s'", op.name, op.cloneSC, op.scName)
+		} else {
+			// Normal case: send is_secondary and control_set_size
+			addSubclusterData.IsSecondary = &op.isSecondary
+
+			// Only send control_set_size if it's not the default value
+			if op.ctlSetSize != util.DefaultControlSetSize {
+				addSubclusterData.CtlSetSize = &op.ctlSetSize
+			}
+
+			op.logger.PrintInfo("[%s] Creating subcluster: name='%s', is_secondary=%v, control_set_size=%d",
+				op.name, op.scName, op.isSecondary, op.ctlSetSize)
+		}
 
 		dataBytes, err := json.Marshal(addSubclusterData)
 		if err != nil {
