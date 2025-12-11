@@ -90,7 +90,7 @@ FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} AS initial
 
 # Controls the version of jre to be installed. The list of all available jre
 # packages can be queried through dnf. For instance, "dnf search openjdk"
-ARG JRE_PKG=java-1.8.0-openjdk-headless
+ARG JRE_PKG=java-11-openjdk-headless
 ARG MINIMAL
 ARG FOR_GITHUB_CI
 
