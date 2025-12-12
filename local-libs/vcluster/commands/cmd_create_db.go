@@ -105,7 +105,7 @@ func (c *CmdCreateDB) setLocalFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().StringVar(
 		&c.createDBOptions.Policy,
-		"policy",
+		restartPolicyFlag,
 		util.DefaultRestartPolicy,
 		"The restart policy of the database.",
 	)
