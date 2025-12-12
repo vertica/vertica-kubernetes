@@ -40,10 +40,8 @@ type VReIPOptions struct {
 	// perform an additional HTTPS check (checkRunningDB operation) to verify that the database is running.
 	// This is useful when Re-IP should only be applied to down db.
 	CheckDBRunning bool
-	// optional ksafety parameter
-	// TODO: change this to int, rather than a pointer
-	// Also, set the default value as 1
-	Ksafety *int
+	// optional ksafety parameter with default value of 1
+	Ksafety int
 
 	// hidden option
 	newAddresses           []string
@@ -56,6 +54,7 @@ func VReIPFactory() VReIPOptions {
 	options.setDefaultValues()
 	options.TrimReIPList = false
 	options.SandboxName = util.MainClusterSandbox
+	options.Ksafety = 1
 	return options
 }
 
