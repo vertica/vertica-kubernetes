@@ -258,6 +258,7 @@ const (
 	stopNodeCmd             = "stop_node"
 	removeNodeSubCmd        = "remove_node"
 	startNodeSubCmd         = "start_node"
+	replaceNodeSubCmd       = "replace_node"
 	reIPSubCmd              = "re_ip"
 	sandboxSubCmd           = "sandbox_subcluster"
 	unsandboxSubCmd         = "unsandbox_subcluster"
@@ -654,6 +655,7 @@ func constructCmds() []*cobra.Command {
 		makeCmdAddNode(),
 		makeCmdStopNode(),
 		makeCmdRemoveNode(),
+		makeCmdReplaceNode(),
 		// others
 		makeCmdScrutinize(),
 		makeCmdManageConfig(),
