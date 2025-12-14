@@ -30,14 +30,14 @@ type nmaReIPOp struct {
 	mapHostToNodeName    map[string]string
 	mapHostToCatalogPath map[string]string
 	trimReIPData         bool
-	ksafety              *int
+	ksafety              int
 }
 
 func makeNMAReIPOp(
 	reIPList []ReIPInfo,
 	vdb *VCoordinationDatabase,
 	trimReIPData bool,
-	ksafety *int) nmaReIPOp {
+	ksafety int) nmaReIPOp {
 	op := nmaReIPOp{}
 	op.name = "NMAReIPOp"
 	op.description = "Update node IPs in catalog"
@@ -187,9 +187,6 @@ func (op *nmaReIPOp) whetherSkipReIP(execContext *opEngineExecContext) bool {
 	return true
 }
 
-// TODO: we need to remove this nolint
-//
-//nolint:gocyclo
 func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	// build mapHostToNodeName and catalogPathMap from vdb
 	op.mapHostToNodeName = make(map[string]string)
@@ -222,26 +219,8 @@ func (op *nmaReIPOp) prepare(execContext *opEngineExecContext) error {
 	// get primary node count
 	op.primaryNodeCount = execContext.nmaVDatabase.PrimaryNodeCount
 
-	// TODO: move this to the hasQuorum(...) function
-	// where we may pass in the execContext
-	nodeCountMatchforZeroKsafety := true
-	if op.ksafety != nil && *op.ksafety == 0 {
-		var primaryNodeCountWithLatestCatalog uint
-
-		for i := range execContext.nmaVDatabase.Nodes {
-			vnode := execContext.nmaVDatabase.Nodes[i]
-			if vnode.IsPrimary {
-				primaryNodeCountWithLatestCatalog++
-			}
-		}
-
-		if op.primaryNodeCount != primaryNodeCountWithLatestCatalog {
-			nodeCountMatchforZeroKsafety = false
-		}
-	}
-
-	// quorum check
-	if !op.hasQuorum(uint(len(op.hosts)), op.primaryNodeCount) || !nodeCountMatchforZeroKsafety {
+	// quorum check (includes special handling for ksafety == 0)
+	if !op.hasQuorumForReIP(uint(len(op.hosts)), execContext) {
 		execContext.quorumLost = true
 		op.skipExecute = true
 		op.logger.Info("failed quorum check, not enough primary nodes exist: ", "primary node count", len(op.hosts))
@@ -320,4 +299,31 @@ func (op *nmaReIPOp) processResult(_ *opEngineExecContext) error {
 	}
 
 	return allErrs
+}
+
+// hasQuorumForReIP checks quorum for Re-IP operations with special handling for ksafety == 0.
+// When ksafety is 0, all primary nodes must have the latest catalog (primaryNodeCountWithLatestCatalog).
+func (op *nmaReIPOp) hasQuorumForReIP(hostCount uint, execContext *opEngineExecContext) bool {
+	// First check standard quorum: hostCount > (1/2 * primaryNodeCount)
+	if !op.hasQuorum(hostCount, op.primaryNodeCount) {
+		return false
+	}
+
+	// Additional check for ksafety == 0: all primary nodes must have latest catalog
+	if op.ksafety == 0 {
+		var primaryNodeCountWithLatestCatalog uint
+		for i := range execContext.nmaVDatabase.Nodes {
+			vnode := execContext.nmaVDatabase.Nodes[i]
+			if vnode.IsPrimary {
+				primaryNodeCountWithLatestCatalog++
+			}
+		}
+
+		if op.primaryNodeCount != primaryNodeCountWithLatestCatalog {
+			// Maintain original behavior: simply fail quorum without extra logging here
+			return false
+		}
+	}
+
+	return true
 }
