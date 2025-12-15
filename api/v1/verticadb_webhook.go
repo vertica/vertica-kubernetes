@@ -575,7 +575,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasNoConflictbetweenTLSAndAdmintool(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidRestorePolicy(allErrs)
-	allErrs = v.hasValidSaveRestorePointConfig(allErrs)
 	allErrs = v.hasNonEmptyLicenseSecret(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
@@ -689,52 +688,35 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsDBInitialized() && v.IsRestoreDuringReviveEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
-		if v.Spec.RestorePoint.Archive == "" {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-				v.Spec.RestorePoint,
-				fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
-					"archive must be specified.", CommunalInitPolicyRevive))
-			allErrs = append(allErrs, err)
+	if !v.IsDBInitialized() && v.IsRestoreDuringReviveEnabled() {
+		if !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+			if v.Spec.RestorePoint.Archive == "" {
+				err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+					v.Spec.RestorePoint,
+					fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
+						"archive must be specified.", CommunalInitPolicyRevive))
+				allErrs = append(allErrs, err)
+			}
+			commonErrorMessage := fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
+				"the database will initialize by reviving from a restore point in the specified archive, and thus "+
+				"either restorePoint.index or restorePoint.id must be properly specified. ", CommunalInitPolicyRevive)
+			if v.Spec.RestorePoint.Index <= 0 && v.Spec.RestorePoint.ID == "" {
+				err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+					v.Spec.RestorePoint,
+					commonErrorMessage+"Both fields are currently empty or invalid.")
+				allErrs = append(allErrs, err)
+			} else if v.Spec.RestorePoint.Index > 0 && v.Spec.RestorePoint.ID != "" {
+				err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+					v.Spec.RestorePoint,
+					commonErrorMessage+"Both fields are currently specified, which is not allowed.")
+				allErrs = append(allErrs, err)
+			}
 		}
-		commonErrorMessage := fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
-			"the database will initialize by reviving from a restore point in the specified archive, and thus "+
-			"either restorePoint.index or restorePoint.id must be properly specified. ", CommunalInitPolicyRevive)
-		if v.Spec.RestorePoint.Index <= 0 && v.Spec.RestorePoint.ID == "" {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-				v.Spec.RestorePoint,
-				commonErrorMessage+"Both fields are currently empty or invalid.")
-			allErrs = append(allErrs, err)
-		} else if v.Spec.RestorePoint.Index > 0 && v.Spec.RestorePoint.ID != "" {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-				v.Spec.RestorePoint,
-				commonErrorMessage+"Both fields are currently specified, which is not allowed.")
-			allErrs = append(allErrs, err)
-		}
-	}
-	return allErrs
-}
-
-func (v *VerticaDB) hasValidSaveRestorePointConfig(allErrs field.ErrorList) field.ErrorList {
-	if v.IsSaveRestorepointEnabled() && !v.Spec.RestorePoint.IsValidForSaveRestorePoint() {
-		err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-			v.Spec.RestorePoint,
-			"restorePoint is invalid. When save restore point is enabled, "+
-				"archive must be specified.")
-		allErrs = append(allErrs, err)
-	}
-	if v.Spec.RestorePoint != nil {
 		invalidChars := findInvalidChars(v.Spec.RestorePoint.Archive, true)
 		if invalidChars != "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("archive"),
 				v.Spec.RestorePoint.Archive,
 				fmt.Sprintf(`archive cannot have the characters %q`, invalidChars))
-			allErrs = append(allErrs, err)
-		}
-		if v.Spec.RestorePoint.NumRestorePoints < 0 {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint").Child("numRestorePoints"),
-				v.Spec.RestorePoint.NumRestorePoints,
-				"numRestorePoints must be set to 0 or greater")
 			allErrs = append(allErrs, err)
 		}
 	}

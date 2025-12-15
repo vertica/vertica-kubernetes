@@ -19,9 +19,8 @@ commands:
       id=$(kubectl exec -n $NAMESPACE v-restore-point-overwrite-sc1-0 -- vsql -w superuser -tAc "select id from archive_restore_points where archive='test'")
 
       # Save restore point
-      INDEX=$(kubectl get vdb v-restore-point-overwrite -n $NAMESPACE -o json | jq '.status.conditions | map(.type == "SaveRestorePointNeeded") | index(true)')
-      kubectl patch vdb v-restore-point-overwrite -n $NAMESPACE --type='json' -p="[{'op': 'replace', 'path': \"/status/conditions/$INDEX/status\", 'value': 'True'}]" --subresource='status'
-      kubectl wait --for=condition=SaveRestorePointNeeded=False vdb/v-restore-point-overwrite -n $NAMESPACE --timeout=600s
+      kubectl apply -f create-vrpq.yaml -n $NAMESPACE
+      kubectl wait --for=condition=QueryComplete=True vrpq/v-restore-point-overwrite-query2 -n $NAMESPACE --timeout=600s
 
       # Verify new count = 1
       new_count=$(kubectl exec -n $NAMESPACE v-restore-point-overwrite-sc1-0 -- vsql -w superuser -tAc "select count(id) from archive_restore_points where archive='test'")

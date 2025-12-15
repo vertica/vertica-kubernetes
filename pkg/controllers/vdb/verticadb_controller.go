@@ -393,8 +393,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAllButConfigChange),
 		// Update sandbox subcluster type in db according to its type in vdb spec
 		MakeAlterSandboxTypeReconciler(r, log, vdb, pfacts),
-		// Handle calls to create a restore point
-		MakeSaveRestorePointReconciler(r, vdb, log, pfacts, dispatcher, r.Client),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent

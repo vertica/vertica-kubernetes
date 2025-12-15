@@ -17,6 +17,6 @@ reason: CreateArchiveStart
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-restore-point-overwrite
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaRestorePointsQuery
+  name: v-restore-point-overwrite-query

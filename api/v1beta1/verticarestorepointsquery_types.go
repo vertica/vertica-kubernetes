@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
+//nolint:lll
 package v1beta1
 
 import (
@@ -35,7 +35,28 @@ type VerticaRestorePointsQuerySpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional parameter that will limit the query to only restore points satisfying provided filter options
 	FilterOptions *VerticaRestorePointQueryFilterOptions `json:"filterOptions,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=ShowRestorePoints
+	// +kubebuilder:validation:Enum=SaveRestorePoint;ShowRestorePoints
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ShowRestorePoints","urn:alm:descriptor:com.tectonic.ui:select:SaveRestorePoint"}
+	// The type of restore points query to perform
+	QueryType VerticaRestorePointsQueryType `json:"queryType"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Options to use when saving a restore point; required if QueryType is SaveRestorePoint
+	SaveOptions *SaveRestorePointOptions `json:"saveOptions,omitempty"`
 }
+
+type VerticaRestorePointsQueryType string
+
+const (
+	// RestorePointsQueryTypeList indicates a query to list restore points
+	SaveRestorePoint VerticaRestorePointsQueryType = "SaveRestorePoint"
+	// RestorePointsQueryTypeShow indicates a query to show restore points
+	ShowRestorePoints VerticaRestorePointsQueryType = "ShowRestorePoints"
+)
 
 // VerticaRestorePointQueryFilterOptions defines the filter options to use while listing restore points
 type VerticaRestorePointQueryFilterOptions struct {
@@ -62,6 +83,18 @@ type VerticaRestorePointQueryFilterOptions struct {
 	EndTimestamp string `json:"endTimestamp,omitempty"`
 }
 
+type SaveRestorePointOptions struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	Archive string `json:"archive"`
+
+	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Maximum number of restore points to save for this archive.
+	NumRestorePoints int `json:"numRestorePoints,omitempty"`
+}
+
 const (
 	archiveNm = "backup" // constants for test purposes
 )
@@ -81,6 +114,22 @@ type VerticaRestorePointsQueryStatus struct {
 	// This contains the result of the restore points query. Check the QueryComplete
 	// status condition to know when this has been populated by the operator.
 	RestorePoints []vclusterops.RestorePoint `json:"restorePoints"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Details of the saved restore point. This is only populated if the queryType
+	// is SaveRestorePoint.
+	SavedRestorePoint *RestorePointInfo `json:"savedRestorePoint,omitempty"`
+}
+
+type RestorePointInfo struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the archive that this restore point was created in.
+	Archive string `json:"archive"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	StartTimestamp string `json:"startTimestamp"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	EndTimestamp string `json:"endTimestamp"`
 }
 
 const (

@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func updateImpl(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
+func UpdateWithRetry(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
 	updateFunc func(*vapi.VerticaRestorePointsQuery) error) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
@@ -82,5 +82,5 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger,
 		vrpq.Status.RestorePoints = restorePoints
 		return nil
 	}
-	return updateImpl(ctx, clnt, log, vrpq, refreshConditionInPlace)
+	return UpdateWithRetry(ctx, clnt, log, vrpq, refreshConditionInPlace)
 }
