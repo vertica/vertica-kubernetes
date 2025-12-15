@@ -113,16 +113,16 @@ func (vrpq *VerticaRestorePointsQuery) validateTimeStamp(allErrs field.ErrorList
 
 func (vrpq *VerticaRestorePointsQuery) hasValidShowRestorePointsConfig(allErrs field.ErrorList) field.ErrorList {
 	if vrpq.Spec.FilterOptions == nil {
-		err := field.Invalid(field.NewPath("spec").Child("filterOptions"),
-			vrpq.Spec.FilterOptions,
-			"filterOptions must be specified when queryType is ShowRestorePoints.")
-		allErrs = append(allErrs, err)
+		return allErrs
 	}
-	if vrpq.Spec.FilterOptions.ArchiveName == "" {
-		err := field.Invalid(field.NewPath("spec").Child("filterOptions").Child("archiveName"),
-			vrpq.Spec.FilterOptions.ArchiveName,
-			"archiveName must be specified when queryType is ShowRestorePoints.")
-		allErrs = append(allErrs, err)
+	if vrpq.Spec.FilterOptions.ArchiveName != "" {
+		invalidChars := findInvalidChars(vrpq.Spec.FilterOptions.ArchiveName, true)
+		if invalidChars != "" {
+			err := field.Invalid(field.NewPath("spec").Child("filterOptions").Child("archiveName"),
+				vrpq.Spec.FilterOptions.ArchiveName,
+				fmt.Sprintf(`archiveName cannot have the characters %q`, invalidChars))
+			allErrs = append(allErrs, err)
+		}
 	}
 
 	return vrpq.validateTimeStamp(allErrs)
