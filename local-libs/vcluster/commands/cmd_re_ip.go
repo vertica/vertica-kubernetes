@@ -149,7 +149,7 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 
 	// Set ksafety if provided
 	if c.ksafety >= 0 {
-		c.reIPOptions.Ksafety = &c.ksafety
+		c.reIPOptions.Ksafety = c.ksafety
 	}
 
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
