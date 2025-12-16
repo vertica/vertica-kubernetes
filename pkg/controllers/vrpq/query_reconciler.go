@@ -217,6 +217,11 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context,
 	start := time.Now()
 	restorePoints, errRun := q.Dispatcher.ShowRestorePoints(ctx, opts...)
 	if errRun != nil {
+		if q.Vrpq.ShouldRetryOnFailure() {
+			q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed,
+				"Show restore points failed, will retry based on annotation settings")
+			return errRun
+		}
 		// Handle failure: emit event and update status conditions
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
@@ -287,6 +292,12 @@ func (q *QueryReconciler) saveRestorePointToArchive(ctx context.Context,
 	// Execute the save restore point operation
 	errRun := q.Dispatcher.SaveRestorePoint(ctx, opts...)
 	if errRun != nil {
+		if q.Vrpq.ShouldRetryOnFailure() {
+			q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.SaveRestorePointFailed,
+				"Failed to save restore point to archive: %s, will retry based on annotation settings",
+				archiveName)
+			return errRun
+		}
 		// Handle failure: emit event and update status conditions
 		q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.SaveRestorePointFailed,
 			"Failed to save restore point to archive: %s", archiveName)

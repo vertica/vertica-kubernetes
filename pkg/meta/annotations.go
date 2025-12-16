@@ -499,6 +499,10 @@ const (
 	ValidLicenseKeyAnnotation = "vertica.com/valid-license-key"
 
 	AllowCELicenseAnnotation = "vertica.com/allow-ce-license"
+
+	// This annotation controls whether to retry on failure when running a restore points query.
+	// Set to true to enable retries, false or omit to disable retries (default: false).
+	RestorePointsQueryRetryAnnotation = "vertica.com/restore-points-query-retry"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -961,6 +965,10 @@ func GetValidLicenseKey(annotations map[string]string) string {
 
 func GetAllowCELicense(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, AllowCELicenseAnnotation, false)
+}
+
+func ShouldRetryRestorePointsQuery(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RestorePointsQueryRetryAnnotation, false /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

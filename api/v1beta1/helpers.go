@@ -25,6 +25,7 @@ import (
 	"time"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -349,6 +350,10 @@ func (vrpq *VerticaRestorePointsQuery) IsSaveRestorePointQuery() bool {
 
 func (vrpq *VerticaRestorePointsQuery) IsShowRestorePointsQuery() bool {
 	return vrpq.Spec.QueryType == ShowRestorePoints
+}
+
+func (vrpq *VerticaRestorePointsQuery) ShouldRetryOnFailure() bool {
+	return vmeta.ShouldRetryRestorePointsQuery(vrpq.Annotations)
 }
 
 func MakeSampleVrpqName() types.NamespacedName {
