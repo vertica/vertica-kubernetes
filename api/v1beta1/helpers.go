@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +36,8 @@ import (
 
 const (
 	ReasonSucceeded = "Succeeded"
+
+	invalidNameChars = "$=<>`" + `'^\".@*?#&/:;{}()[] \~!%+|,`
 )
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
@@ -340,6 +344,18 @@ func (v *VerticaAutoscaler) GetMetricMap() map[string]*MetricDefinition {
 	return mMap
 }
 
+func (vrpq *VerticaRestorePointsQuery) IsSaveRestorePointQuery() bool {
+	return vrpq.Spec.QueryType == SaveRestorePoint
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsShowRestorePointsQuery() bool {
+	return vrpq.Spec.QueryType == ShowRestorePoints
+}
+
+func (vrpq *VerticaRestorePointsQuery) ShouldRetryOnFailure() bool {
+	return vmeta.ShouldRetryRestorePointsQuery(vrpq.Annotations)
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
@@ -360,6 +376,7 @@ func MakeVrpq() *VerticaRestorePointsQuery {
 		},
 		Spec: VerticaRestorePointsQuerySpec{
 			VerticaDBName: VDBNm.Name,
+			QueryType:     ShowRestorePoints,
 			FilterOptions: &VerticaRestorePointQueryFilterOptions{
 				ArchiveName: archiveNm,
 			},
@@ -415,4 +432,21 @@ func ptrOrNil[T any](val *T) *T {
 	}
 	newVal := *val
 	return &newVal
+}
+
+func findInvalidChars(objName string, allowDash bool) string {
+	invalidChars := invalidNameChars
+
+	// Dash is supported in some object names (eg archive name) but not others (eg db name)
+	if !allowDash {
+		invalidChars += "-"
+	}
+
+	foundChars := ""
+	for _, c := range invalidChars {
+		if strings.Contains(objName, string(c)) {
+			foundChars += string(c)
+		}
+	}
+	return foundChars
 }

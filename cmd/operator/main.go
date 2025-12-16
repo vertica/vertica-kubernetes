@@ -142,6 +142,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 	if err := (&vrpq.VerticaRestorePointsQueryReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
+		Cfg:          restCfg,
 		EVRec:        mgr.GetEventRecorderFor(vmeta.OperatorName),
 		Log:          ctrl.Log.WithName("controllers").WithName("VerticaRestorePointsQuery"),
 		CacheManager: cacheManager,

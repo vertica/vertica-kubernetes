@@ -468,6 +468,7 @@ type RestorePointPolicy struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Maximum number of restore points to save for this archive.
+	// Deprecated: This field is deprecated. Use VerticaRestorePointsQuery CRD to manage restore points instead.
 	NumRestorePoints int `json:"numRestorePoints,omitempty"`
 }
 
@@ -1071,11 +1072,6 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// The details about the last created restore point
-	RestorePoint *RestorePointInfo `json:"restorePoint"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +Optional
 	// The details of the current using additional buckets
 	AdditionalBuckets []CommunalStorage `json:"additionalBuckets,omitempty"`
 
@@ -1242,10 +1238,6 @@ const (
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"
-	// SaveRestorePointNeeded is a condition that when set to true, make the
-	// operator create a restore point, using the spec.restorePoint.archive
-	// as the archive name to save to.
-	SaveRestorePointNeeded = "SaveRestorePointNeeded"
 	// HTTPSTLSConfigUpdateFinished indicates the HTTPS TLS config update has finished
 	HTTPSTLSConfigUpdateFinished        = "HTTPSTLSConfigUpdateFinished"
 	ClientServerTLSConfigUpdateFinished = "ClientServerTLSConfigUpdateFinished"

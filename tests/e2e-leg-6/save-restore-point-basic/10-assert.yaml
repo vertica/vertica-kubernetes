@@ -17,14 +17,25 @@ reason: SaveRestorePointSucceeded
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-restore-point
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaRestorePointsQuery
+  name: v-restore-point-query
 ---
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
 metadata:
-  name: v-restore-point
+  name: v-restore-point-query
 status:
-  restorePoint:
+  conditions:
+    - type: QueryReady
+      status: "True"
+      reason: Completed
+    - type: Querying
+      status: "False"
+      reason: Completed
+    - type: QueryComplete
+      status: "True"
+      reason: Completed
+  savedRestorePoint:
     archive: test
+  state: "Query successful"

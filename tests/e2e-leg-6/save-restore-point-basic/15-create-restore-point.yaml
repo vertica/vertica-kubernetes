@@ -11,10 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: |
-      INDEX=$(kubectl get vdb v-restore-point -n $NAMESPACE -o json | jq '.status.conditions | map(.type == "SaveRestorePointNeeded") | index(true)') \
-      && kubectl patch vdb v-restore-point -n $NAMESPACE --type='json' -p="[{'op': 'replace', 'path': '/status/conditions/$INDEX/status', 'value': 'True'}]" --subresource='status' \
-      && kubectl wait --for=condition=SaveRestorePointNeeded=True vdb/v-restore-point -n $NAMESPACE --timeout=600s
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  name: v-restore-point-query2
+spec:
+  verticaDBName: v-restore-point
+  queryType: SaveRestorePoint
+  saveOptions:
+    archive: test

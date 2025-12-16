@@ -24,7 +24,10 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	vrpqtatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
@@ -51,10 +54,23 @@ var _ = Describe("query_reconcile", func() {
 		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
-		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
-		Expect(result).Should(Equal(ctrl.Result{}))
+		// Create minimal setup for admintools test (dispatcher will fail early for admintools)
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vadmin.MakeAdmintools(logger, vdb, fpr, vrpqRec.EVRec)
+		pfacts := podfacts.PodFacts{}
+		pfacts.Detail = make(podfacts.PodFactDetail)
+		pfmain := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[pfmain] = &podfacts.PodFact{}
+		pfacts.Detail[pfmain].SetUpNode(true)
+		pfacts.Detail[pfmain].SetSubclusterName("")
+		pfacts.Detail[pfmain].SetIsPrimary(true)
+
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, vdb, logger, &pfacts, dispatcher)
+		rr := recon.(*QueryReconciler)
+		_, _ = rr.ConstructConfigParms(ctx)
+		err := rr.showRestorePoints(ctx, "10.0.0.1")
+
 		Expect(err.Error()).To(ContainSubstring("ShowRestorePoints is not supported for admintools deployments"))
 	})
 
@@ -78,7 +94,7 @@ var _ = Describe("query_reconcile", func() {
 		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		err := constructVrpqDispatcher(ctx, vrpq, dispatcher)
+		err := constructVrpqDispatcher(ctx, vrpq, vdb, dispatcher)
 		Ω(err).Should(Succeed())
 
 		// make sure that Quering condition is updated to false and
@@ -117,7 +133,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
-		parms := contructAuthParmsMapForVrpq(ctx, vrpq, "AzureStorageCredentials")
+		parms := contructAuthParmsMapForVrpq(ctx, vrpq, vdb, "AzureStorageCredentials")
 		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
 		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureAccountKey))
 	})
@@ -134,7 +150,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
-		params := contructAuthParmsMapForVrpq(ctx, vrpq, "AzureStorageCredentials")
+		params := contructAuthParmsMapForVrpq(ctx, vrpq, vdb, "AzureStorageCredentials")
 		ExpectWithOffset(1, params.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
 		ExpectWithOffset(1, params.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
 	})
@@ -149,7 +165,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
-		contructAuthParmsHelperForVrpq(ctx, vrpq, "", "")
+		contructAuthParmsHelperForVrpq(ctx, vrpq, vdb, "", "")
 	})
 
 	It("should add additional server config parms to config parms map", func() {
@@ -166,22 +182,23 @@ var _ = Describe("query_reconcile", func() {
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
-		g := constructVrpqQuery(ctx, vrpq)
+		g := constructVrpqQuery(ctx, vrpq, vdb)
 		g.SetAdditionalConfigParms()
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
 	})
 })
 
 func contructAuthParmsMapForVrpq(ctx context.Context,
-	vrpq *v1beta1.VerticaRestorePointsQuery, key string) *types.CiMap {
-	g := constructVrpqQuery(ctx, vrpq)
+	vrpq *v1beta1.VerticaRestorePointsQuery, vdb *vapi.VerticaDB, key string) *types.CiMap {
+	g := constructVrpqQuery(ctx, vrpq, vdb)
 	_, ok := g.ConfigurationParams.Get(key)
 	ExpectWithOffset(1, ok).Should(Equal(true))
 	return g.ConfigurationParams
 }
 
-func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery, key, value string) {
-	g := constructVrpqQuery(ctx, vrpq)
+func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery,
+	vdb *vapi.VerticaDB, key, value string) {
+	g := constructVrpqQuery(ctx, vrpq, vdb)
 	if g.Vdb.Spec.Communal.Path == "" {
 		ExpectWithOffset(1, g.ConfigurationParams.Size()).Should(Equal(0))
 		return
@@ -194,14 +211,16 @@ func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *v1beta1.VerticaRe
 	ExpectWithOffset(1, g.ConfigurationParams.ContainKeyValuePair(key, value)).Should(Equal(true))
 }
 
-func constructVrpqQuery(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery) *QueryReconciler {
+func constructVrpqQuery(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery, vdb *vapi.VerticaDB) *QueryReconciler {
 	g := &QueryReconciler{
 		VRec: vrpqRec,
 		Vrpq: vrpq,
 		Log:  logger,
+		Vdb:  vdb,
 		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec: vrpqRec,
 			Log:  logger,
+			Vdb:  vdb,
 		},
 	}
 
@@ -211,14 +230,18 @@ func constructVrpqQuery(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQ
 	return g
 }
 
-func constructVrpqDispatcher(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery, dispatcher *vadmin.VClusterOps) error {
+func constructVrpqDispatcher(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery,
+	vdb *vapi.VerticaDB, dispatcher *vadmin.VClusterOps) error {
 	g := &QueryReconciler{
-		VRec: vrpqRec,
-		Vrpq: vrpq,
-		Log:  logger,
+		VRec:       vrpqRec,
+		Vrpq:       vrpq,
+		Log:        logger,
+		Vdb:        vdb,
+		Dispatcher: dispatcher,
 		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec: vrpqRec,
 			Log:  logger,
+			Vdb:  vdb,
 		},
 	}
 	opts := []showrestorepoints.Option{}
@@ -226,6 +249,6 @@ func constructVrpqDispatcher(ctx context.Context, vrpq *v1beta1.VerticaRestorePo
 		showrestorepoints.WithInitiator(vrpq.ExtractNamespacedName(), "192.168.0.1"),
 		showrestorepoints.WithCommunalPath("/communal"),
 	)
-	err := g.runShowRestorePoints(ctx, dispatcher, opts)
+	err := g.runShowRestorePoints(ctx, opts)
 	return err
 }

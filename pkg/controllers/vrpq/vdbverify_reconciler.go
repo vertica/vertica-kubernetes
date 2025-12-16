@@ -22,10 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
 	corev1 "k8s.io/api/core/v1"
 
@@ -38,14 +35,16 @@ const stateIncompatibleDB = "Incompatible"
 type VdbVerifyReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
 	Vrpq *v1beta1.VerticaRestorePointsQuery
+	Vdb  *vapi.VerticaDB
 	Log  logr.Logger
 }
 
 func MakeVdbVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
-	log logr.Logger) controllers.ReconcileActor {
+	log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
 	return &VdbVerifyReconciler{
 		VRec: r,
 		Vrpq: vrpq,
+		Vdb:  vdb,
 		Log:  log.WithName("VdbVerifyReconciler"),
 	}
 }
@@ -59,14 +58,8 @@ func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	vdb := &vapi.VerticaDB{}
-	nm := names.GenNamespacedName(q.Vrpq, q.Vrpq.Spec.VerticaDBName)
-	if res, err := vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-
 	// check version for vdb, the minimim version should be 24.2.0
-	vinf, err := vdb.MakeVersionInfoCheck()
+	vinf, err := q.Vdb.MakeVersionInfoCheck()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -82,7 +75,7 @@ func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	// Should be deployed with vclusterops, not supported for admintools deployments
-	if !vdb.UseVClusterOpsDeployment() {
+	if !q.Vdb.UseVClusterOpsDeployment() {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.VrpqAdmintoolsNotSupported,
 			"ShowRestorePoints is not supported for admintools deployments")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,

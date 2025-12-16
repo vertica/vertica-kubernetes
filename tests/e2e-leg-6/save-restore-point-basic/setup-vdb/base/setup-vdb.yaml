@@ -29,8 +29,6 @@ spec:
     requestSize: 100Mi
   initPolicy: CreateSkipPackageInstall
   dbName: vertdb
-  restorePoint:
-    archive: test
   subclusters:
     - name: sc1
       size: 1

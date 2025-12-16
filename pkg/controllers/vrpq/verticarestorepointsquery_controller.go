@@ -31,10 +31,16 @@ import (
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cache"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/podfacts"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 )
 
 // VerticaRestorePointsQueryReconciler reconciles a VerticaRestorePointsQuery object
@@ -82,9 +88,31 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, nil
 	}
 
-	// Iterate over each actor
-	actors := r.constructActors(vrpq, log)
+	vdb := &v1vapi.VerticaDB{}
+	nm := names.GenNamespacedName(vrpq, vrpq.Spec.VerticaDBName)
 	var res ctrl.Result
+	if res, err = vk8s.FetchVDB(ctx, r, vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	fetcher := &cloud.SecretFetcher{
+		Client:   r.Client,
+		Log:      r.Log,
+		Obj:      vdb,
+		EVWriter: r.EVRec,
+	}
+	r.CacheManager.InitCacheForVdb(vdb, fetcher)
+
+	passwd, errPasswd := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb, r.CacheManager, v1vapi.MainCluster)
+	if errPasswd != nil {
+		return ctrl.Result{}, errPasswd
+	}
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd, vdb.IsClientServerTLSAuthEnabled())
+	pfacts := podfacts.MakePodFactsWithCacheManager(r, prunner, log, passwd, r.CacheManager)
+	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps, r.CacheManager)
+
+	// Iterate over each actor
+	actors := r.constructActors(vrpq, log, vdb, &pfacts, dispatcher)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -114,13 +142,13 @@ func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager)
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
 func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger) []controllers.ReconcileActor {
+	log logr.Logger, vdb *v1vapi.VerticaDB, pfacts *podfacts.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before performing a query
-		MakeVdbVerifyReconciler(r, vrpq, log),
+		MakeVdbVerifyReconciler(r, vrpq, log, vdb),
 		// Handle calls to show restore points
-		MakeRestorePointsQueryReconciler(r, vrpq, log),
+		MakeRestorePointsQueryReconciler(r, vrpq, vdb, log, pfacts, dispatcher),
 	}
 	return actors
 }

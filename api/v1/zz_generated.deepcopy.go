@@ -1046,11 +1046,6 @@ func (in *VerticaDBStatus) DeepCopyInto(out *VerticaDBStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.RestorePoint != nil {
-		in, out := &in.RestorePoint, &out.RestorePoint
-		*out = new(RestorePointInfo)
-		**out = **in
-	}
 	if in.AdditionalBuckets != nil {
 		in, out := &in.AdditionalBuckets, &out.AdditionalBuckets
 		*out = make([]CommunalStorage, len(*in))
