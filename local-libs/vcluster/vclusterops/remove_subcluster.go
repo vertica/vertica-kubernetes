@@ -29,9 +29,8 @@ import (
 // database.
 type VRemoveScOptions struct {
 	DatabaseOptions
-	SCName         string // subcluster to remove from database
-	ForceDelete    bool   // whether force delete directories
-	RetainDepotDir bool   // whether to retain depot dir for the nodes of the subcluster
+	SCName      string // subcluster to remove from database
+	ForceDelete bool   // whether force delete directories
 	// The expected node names with their IPs in the subcluster, the user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used to do re-ip in
 	// the cluster that contains the subcluster.
@@ -208,8 +207,6 @@ func (vcc VClusterCommands) VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VC
 		removeNodeOpt.ForceDelete = removeScOpt.ForceDelete
 		removeNodeOpt.IsSubcluster = true
 		removeNodeOpt.NodesToPullSubs = removeScOpt.NodesToPullSubs
-		removeNodeOpt.RetainDepotDir = removeScOpt.RetainDepotDir
-
 		// Get a set of initiators for removing nodes
 		// The initiators are selected strictly from a sandbox if we are removing the sc from a sandbox
 		// else it is a set of primary up nodes from the main cluster.
@@ -262,7 +259,7 @@ func (options *VRemoveScOptions) getAllInitiatorsOfTheOperatingDBGroup(vdb *VCoo
 	// This check ensures that the subcluster to be removed, does not exist on main cluster
 	// If there are duplicate subcluster names existing on sandbox and main cluster (with different set of nodes),
 	// we should not incorrectly flag the sandbox subcluster to be known by the main cluster.
-	removeHostsSet := mapset.NewSet(removeHosts...)
+	removeHostsSet := mapset.NewSet[string](removeHosts...)
 	for _, vnode := range vdb.HostNodeMap {
 		if vnode.Subcluster == options.SCName &&
 			vnode.Sandbox == util.MainClusterSandbox &&

@@ -13,7 +13,6 @@ const (
 	StartNodeCmd
 	StopNodeCmd
 	RestartNodeCmd
-	ReplaceNodeCmd
 	AddSubclusterCmd
 	RemoveSubclusterCmd
 	StopSubclusterCmd
@@ -55,15 +54,6 @@ const (
 	RotateNMACertsCmd
 	RotateVerticaCertsCmd
 	SetTLSConfigCmd
-	ReturnEpochCmd
-	UninstallPackagesCmd
-	ListPackagesCmd
-	GetRedirectStateCmd
-	SetRedirectStateCmd
-	RestartNMACmd
-	PollConnectionDrainingCmd
-	UpgradeVerticaCmd
-	CloneSubclusterPropertiesCmd
 )
 
 var cmdStringMap = map[CmdType]string{
@@ -76,7 +66,6 @@ var cmdStringMap = map[CmdType]string{
 	StartNodeCmd:                 "start_node",
 	StopNodeCmd:                  "stop_node",
 	RestartNodeCmd:               "restart_node",
-	ReplaceNodeCmd:               "replace_node",
 	AddSubclusterCmd:             "add_subcluster",
 	RemoveSubclusterCmd:          "remove_subcluster",
 	StopSubclusterCmd:            "stop_subcluster",
@@ -115,15 +104,6 @@ var cmdStringMap = map[CmdType]string{
 	RotateNMACertsCmd:            "rotate_nma_certs",
 	RotateVerticaCertsCmd:        "rotate_vertica_certs",
 	SetTLSConfigCmd:              "set_tls_config",
-	ReturnEpochCmd:               "return_epoch",
-	UninstallPackagesCmd:         "uninstall_packages",
-	ListPackagesCmd:              "list_packages",
-	GetRedirectStateCmd:          "get_redirect_state",
-	SetRedirectStateCmd:          "set_redirect_state",
-	RestartNMACmd:                "restart_nma",
-	PollConnectionDrainingCmd:    "poll_connection_draining",
-	UpgradeVerticaCmd:            "upgrade_vertica",
-	CloneSubclusterPropertiesCmd: "clone_subcluster_properties",
 }
 
 func (cmd CmdType) CmdString() string {

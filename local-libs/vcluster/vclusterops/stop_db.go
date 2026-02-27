@@ -16,27 +16,11 @@
 package vclusterops
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
-
-type ActiveSessionDetails struct {
-	SessionID      string `json:"session_id"`
-	Username       string `json:"user_name"`
-	ClientHostname string `json:"client_hostname"`
-}
-
-// Thrown when running "stop_db --if-no-users" while users are connected
-type ActiveSessionsError struct {
-	Sessions []ActiveSessionDetails
-}
-
-func (e *ActiveSessionsError) Error() string {
-	return "fail to stop database: cannot shutdown while users are connected"
-}
 
 type VStopDatabaseOptions struct {
 	/* part 1: basic db info */
@@ -84,7 +68,7 @@ func (options *VStopDatabaseOptions) validateEonOptions(log vlog.Printer) error 
 				" Connection draining is only available in eon mode.")
 		}
 		options.DrainSeconds = nil
-	} else if options.isShutdownWithDrain() && options.DrainSeconds == nil {
+	} else if options.DrainSeconds == nil {
 		// if db is eon db and we do not see --drain-seconds, we will set it to 60 seconds (default value)
 		options.DrainSeconds = new(int)
 		*options.DrainSeconds = util.DefaultDrainSeconds
@@ -141,10 +125,6 @@ func (options *VStopDatabaseOptions) validateAnalyzeOptions(log vlog.Printer) er
 	return options.analyzeOptions()
 }
 
-func (options *VStopDatabaseOptions) isShutdownWithDrain() bool {
-	return !options.ForceKill && !options.CheckUserConn
-}
-
 func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	/*
 	 *   - Produce Instructions
@@ -152,13 +132,8 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	 *   - Give the instructions to the VClusterOpEngine to run
 	 */
 
-	err := options.validateUserName(vcc.Log)
-	if err != nil {
-		return err
-	}
-
 	// validate and analyze all options
-	err = options.validateAnalyzeOptions(vcc.Log)
+	err := options.validateAnalyzeOptions(vcc.Log)
 	if err != nil {
 		return err
 	}
@@ -184,9 +159,7 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 
 	options.setAllHosts(&vdb)
 
-	activeSessions := []ActiveSessionDetails{}
-
-	instructions, err := vcc.produceStopDBInstructions(options, &activeSessions)
+	instructions, err := vcc.produceStopDBInstructions(options)
 	if err != nil {
 		return fmt.Errorf("fail to production instructions: %w", err)
 	}
@@ -196,10 +169,6 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 	// Give the instructions to the VClusterOpEngine to run
 	runError := clusterOpEngine.runInSandbox(vcc.GetLog(), &vdb, options.SandboxName)
 	if runError != nil {
-		if errors.Is(runError, ErrActiveSessions) {
-			return &ActiveSessionsError{Sessions: activeSessions}
-		}
-
 		return fmt.Errorf("fail to stop database: %w", runError)
 	}
 
@@ -215,33 +184,27 @@ func (vcc VClusterCommands) VStopDatabase(options *VStopDatabaseOptions) error {
 //   - Sync catalog through the first up node
 //   - Stop db through the first up node
 //   - Check there is not any database running
-func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOptions,
-	activeSessions *[]ActiveSessionDetails) ([]clusterOp, error) {
+func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 
 	// when password is specified, we will use username/password to call https endpoints
-	err := options.setUsePasswordAndValidateUsernameIfNeeded(vcc.Log)
-	if err != nil {
-		return instructions, err
-	}
-
-	if options.CheckUserConn {
-		nmaCheckActiveSessionOp, err := vcc.produceCheckNMAActiveSessionsInstruction(
-			options, activeSessions)
+	usePassword := false
+	if options.Password != nil {
+		usePassword = true
+		err := options.validateUserName(vcc.Log)
 		if err != nil {
 			return instructions, err
 		}
-		instructions = append(instructions, &nmaCheckActiveSessionOp)
 	}
 
 	httpsGetUpNodesOp, err := makeHTTPSGetUpNodesWithSandboxOp(options.DBName, options.Hosts,
-		options.usePassword, options.UserName, options.Password, StopDBCmd, options.SandboxName, options.MainCluster)
+		usePassword, options.UserName, options.Password, StopDBCmd, options.SandboxName, options.MainCluster)
 	if err != nil {
 		return instructions, err
 	}
 	instructions = append(instructions, &httpsGetUpNodesOp)
 	if options.IsEon && options.IfSyncCatalog {
-		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(options.usePassword, options.UserName, options.Password, StopDBSyncCat)
+		httpsSyncCatalogOp, e := makeHTTPSSyncCatalogOpWithoutHosts(usePassword, options.UserName, options.Password, StopDBSyncCat)
 		if e != nil {
 			return instructions, e
 		}
@@ -250,14 +213,14 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 		vcc.Log.PrintInfo("Skipping sync catalog for an enterprise database")
 	}
 
-	httpsStopDBOp, err := makeHTTPSStopDBOp(options.usePassword, options.UserName, options.Password, options.DrainSeconds,
-		options.SandboxName, options.MainCluster, options.IsEon, options.ForceKill)
+	httpsStopDBOp, err := makeHTTPSStopDBOp(usePassword, options.UserName, options.Password, options.DrainSeconds,
+		options.SandboxName, options.MainCluster, options.IsEon)
 	if err != nil {
 		return instructions, err
 	}
 
 	httpsCheckDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(options.Hosts,
-		options.usePassword, options.UserName, options.SandboxName, options.MainCluster, options.Password, StopDB, options.DBName)
+		usePassword, options.UserName, options.SandboxName, options.MainCluster, options.Password, StopDB)
 	if err != nil {
 		return instructions, err
 	}
@@ -268,38 +231,6 @@ func (vcc *VClusterCommands) produceStopDBInstructions(options *VStopDatabaseOpt
 	)
 
 	return instructions, nil
-}
-
-func (vcc *VClusterCommands) produceCheckNMAActiveSessionsInstruction(options *VStopDatabaseOptions,
-	activeSessions *[]ActiveSessionDetails) (nmaCheckActiveSessionsOp, error) {
-	nmaCheckActiveSessionsOp := nmaCheckActiveSessionsOp{}
-	vdb := makeVCoordinationDatabase()
-
-	err := vcc.getVDBFromRunningDB(&vdb, &options.DatabaseOptions)
-	if err != nil {
-		return nmaCheckActiveSessionsOp, err
-	}
-	// Get up hosts
-	hosts := options.Hosts
-	if options.MainCluster {
-		hosts = vdb.filterUpHostListBySandbox(hosts, util.MainClusterSandbox)
-	} else {
-		hosts = vdb.filterUpHostListBySandbox(hosts, options.SandboxName)
-	}
-	if len(hosts) == 0 {
-		return nmaCheckActiveSessionsOp, fmt.Errorf("found no UP nodes for capture workload")
-	}
-
-	// Get initiator host to send NMA requests to
-	initiator, err := getInitiatorHost(vdb.PrimaryUpNodes, []string{} /* skip hosts */)
-	if err != nil {
-		return nmaCheckActiveSessionsOp, err
-	}
-	initiatorHost := []string{initiator}
-
-	return makeNMACheckActiveSessionsOp(initiatorHost,
-		options.DBName, options.UserName, options.Password,
-		activeSessions, true /* assertNoActiveSessions*/)
 }
 
 // checkStopDBRequirements validates any stop_db requirements. It will

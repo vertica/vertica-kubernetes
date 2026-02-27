@@ -33,7 +33,6 @@ type VRemoveNodeOptions struct {
 	UnboundNodesToRemove []string // Unbound nodes to remove from database
 	Initiator            string   // A primary up host that will be used to execute remove_node operations.
 	ForceDelete          bool     // whether force delete directories
-	RetainDepotDir       bool     // // whether to retain depot dir for the nodes of the nodes, unbound nodes have no depot/catalog/data dirs
 	IsSubcluster         bool     // is removing all nodes for a subcluster
 	// Names of the nodes that need to have active subscription. The user of vclusterOps needs
 	// to make sure the provided values are correct. This option will be used when some nodes
@@ -58,7 +57,6 @@ func (options *VRemoveNodeOptions) setDefaultValues() {
 
 	options.ForceDelete = true
 	options.IsSubcluster = false
-	options.RetainDepotDir = false
 }
 
 func (options *VRemoveNodeOptions) validateRequiredOptions(logger vlog.Printer) error {
@@ -310,8 +308,7 @@ func (vcc VClusterCommands) handleRemoveNodeForHostsNotInCatalog(vdb *VCoordinat
 
 	// Using the paths fetched earlier, we can now build the list of directories
 	// that the NMA should remove.
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&vdbForDeleteDir, options.ForceDelete,
-		false /*retainDirsExceptCatSubDir?*/, options.RetainDepotDir)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&vdbForDeleteDir, options.ForceDelete)
 	if err != nil {
 		return *vdb, err
 	}
@@ -500,8 +497,7 @@ func (vcc VClusterCommands) produceRemoveNodeInstructions(vdb *VCoordinationData
 	// contains the hosts to remove, including any compute nodes
 	v := vdb.copy(options.HostsToRemove)
 	nmaHealthOp := makeNMAHealthOpSkipUnreachable(v.HostList)
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, options.ForceDelete,
-		false /*retainDirsExceptCatSubDir?*/, options.RetainDepotDir)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(&v, options.ForceDelete)
 	if err != nil {
 		return instructions, err
 	}

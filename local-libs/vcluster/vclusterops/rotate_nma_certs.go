@@ -161,7 +161,7 @@ func (vcc VClusterCommands) produceKillNMAInstructions(
 func (vcc VClusterCommands) produceRotateNMACertsInstructions(
 	options *VRotateNMACertsOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
-	nmaPollCertHealthOp := makeNMAPollCertHealthOp(options.Hosts, 0)
+	nmaPollCertHealthOp := makeNMAPollCertHealthOp(options.Hosts)
 	instructions = append(instructions, &nmaPollCertHealthOp)
 	return instructions, nil
 }

@@ -358,24 +358,6 @@ func (vdb *VCoordinationDatabase) getSCNames() []string {
 	return scNames
 }
 
-type scStatus struct {
-	IsPrimary bool
-	IsUp      bool
-	Sandbox   string
-}
-
-func (vdb *VCoordinationDatabase) getScStatus() map[string]scStatus {
-	res := make(map[string]scStatus)
-	for _, n := range vdb.HostNodeMap {
-		if _, value := res[n.Subcluster]; !value {
-			res[n.Subcluster] = scStatus{IsPrimary: n.IsPrimary, IsUp: n.State == util.NodeUpState, Sandbox: n.Sandbox}
-		} else if !res[n.Subcluster].IsUp && n.State == util.NodeUpState {
-			res[n.Subcluster] = scStatus{IsPrimary: n.IsPrimary, IsUp: n.State == util.NodeUpState, Sandbox: n.Sandbox}
-		}
-	}
-	return res
-}
-
 // containNodes determines which nodes are in the vdb and which ones are not.
 // The node is determined by looking up the host address.
 func (vdb *VCoordinationDatabase) containNodes(nodes []string) (nodesInDB, nodesNotInDB []string) {

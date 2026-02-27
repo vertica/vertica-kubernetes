@@ -113,20 +113,13 @@ const (
 	connKey                         = "conn"
 	stopNodeFlag                    = "stop-hosts"
 	reIPFileFlag                    = "re-ip-file"
-	ksafetyFlag                     = "ksafety"
 	removeNodeFlag                  = "remove"
 	removeUnboundNodesFlag          = "remove-unbound-nodes"
 	startNodeFlag                   = "start"
 	startHostFlag                   = "start-hosts"
 	useExistingCatalogDirFlag       = "use-existing-catalog-directory"
 	retainCatalogDirFlag            = "retain-catalog-directory"
-	retainDepotDirFlag              = "retain-depot-directory"
-	useExistingDepotDirFlag         = "use-existing-depot-directory"
 	nodeNameToHostFlag              = "nodename-to-host"
-	forceLoadRemoteCatalog          = "force-load-remote-catalog"
-	epochFlag                       = "epoch"
-	epochKey                        = "epoch"
-	skipAutoStartFlag               = "skip-auto-start"
 )
 
 // Flag and key for database replication
@@ -258,7 +251,6 @@ const (
 	stopNodeCmd             = "stop_node"
 	removeNodeSubCmd        = "remove_node"
 	startNodeSubCmd         = "start_node"
-	replaceNodeSubCmd       = "replace_node"
 	reIPSubCmd              = "re_ip"
 	sandboxSubCmd           = "sandbox_subcluster"
 	unsandboxSubCmd         = "unsandbox_subcluster"
@@ -272,14 +264,7 @@ const (
 	getDrainingStatusSubCmd = "get_draining_status"
 	upgradeLicenseCmd       = "upgrade_license"
 	checkConnectionSubCmd   = "check"
-	returnEpochSubCmd       = "return_epoch"
 	clusterHealth           = "cluster_health"
-	unInstallPkgSubCmd      = "uninstall_packages"
-	listPkgSubCmd           = "list_packages"
-	upgradeVerticaSubCmd    = "upgrade_vertica"
-	upgradePart1SubCmd      = "create_sandbox"
-	upgradePart2SubCmd      = "promote_sandbox"
-	upgradePart3SubCmd      = "finalize"
 )
 
 // cmdGlobals holds global variables shared by multiple
@@ -642,7 +627,6 @@ func constructCmds() []*cobra.Command {
 		makeCmdReIP(),
 		makeCmdShowRestorePoints(),
 		makeCmdInstallPackages(),
-		makeCmdReturnEpoch(),
 		// sc-scope cmds
 		makeCmdAddSubcluster(),
 		makeCmdRemoveSubcluster(),
@@ -655,7 +639,6 @@ func constructCmds() []*cobra.Command {
 		makeCmdAddNode(),
 		makeCmdStopNode(),
 		makeCmdRemoveNode(),
-		makeCmdReplaceNode(),
 		// others
 		makeCmdScrutinize(),
 		makeCmdManageConfig(),
@@ -669,9 +652,6 @@ func constructCmds() []*cobra.Command {
 		makeCmdSaveRestorePoint(),
 		makeCmdUpgradeLicense(),
 		makeCmdClusterHealth(),
-		makeCmdUninstallPackages(),
-		makeCmdListPackages(),
-		makeCmdUpgradeVertica(),
 	}
 }
 

@@ -5,25 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 )
 
 const (
-	delDirOpName          = "NMADeleteDirectoriesOp"
-	delDirOpDesc          = "Delete database directories"
-	delDirRetainDirOpName = "NMADeleteDirsRetainDirOp"
-	delDirRetainDirOpDesc = "Delete database directories except for specified dirs: "
+	delDirOpName                = "NMADeleteDirectoriesOp"
+	delDirOpDesc                = "Delete database directories"
+	delDirRetainCatlogDirOpName = "NMADeleteDirsRetainCatalogDirOp"
+	delDirRetainCatlogDirOpDesc = "Delete database directories except for catalog directory"
 	// the real dir storing catalog content
 	nodeCatalogSubDirSuffix = "/Catalog"
 )
 
 type nmaDeleteDirectoriesOp struct {
 	opBase
-	hostRequestBodyMap        map[string]string
-	sandbox                   bool
-	forceDelete               bool
-	retainDirsExceptCatSubDir bool // used for drop db, if true, only drop v_<node_name>_catalog/Catalog subdir, retain other dirs
-	retainOnlyDepotDir        bool // used for remove subcluster/node, if true, retain the depot dir of the node
+	hostRequestBodyMap map[string]string
+	sandbox            bool
+	forceDelete        bool
+	retainCatalogDir   bool
 }
 
 type deleteDirParams struct {
@@ -33,22 +31,14 @@ type deleteDirParams struct {
 }
 
 func makeNMADeleteDirOpHelper(vdb *VCoordinationDatabase,
-	forceDelete, retainDirsExceptCatSubDir, retainOnlyDepotDir bool) (nmaDeleteDirectoriesOp, error) {
+	forceDelete, retainCatalogDir bool) (nmaDeleteDirectoriesOp, error) {
 	op := nmaDeleteDirectoriesOp{}
 	op.name = delDirOpName
 	op.description = delDirOpDesc
-	op.retainDirsExceptCatSubDir = retainDirsExceptCatSubDir
-	op.retainOnlyDepotDir = retainOnlyDepotDir
-	if op.retainDirs() {
-		op.name = delDirRetainDirOpName
-		retainDirList := []string{}
-		if op.retainDirsExceptCatSubDir {
-			retainDirList = append(retainDirList, "non /Catalog dirs")
-		}
-		if op.retainOnlyDepotDir {
-			retainDirList = append(retainDirList, "depot dir")
-		}
-		op.description = delDirRetainDirOpDesc + strings.Join(retainDirList, ",")
+	op.retainCatalogDir = retainCatalogDir
+	if op.retainCatalogDir {
+		op.name = delDirRetainCatlogDirOpName
+		op.description = delDirRetainCatlogDirOpDesc
 	}
 	op.hosts = vdb.HostList
 	// op.sandbox being false indicates that this is NOT an unsandbox operation
@@ -66,12 +56,12 @@ func makeNMADeleteDirOpHelper(vdb *VCoordinationDatabase,
 
 func makeNMADeleteDirectoriesOp(
 	vdb *VCoordinationDatabase,
-	forceDelete bool, retainDirsExceptCatSubDir, retainOnlyDepotDir bool) (nmaDeleteDirectoriesOp, error) {
-	op, err := makeNMADeleteDirOpHelper(vdb, forceDelete, retainDirsExceptCatSubDir, retainOnlyDepotDir)
+	forceDelete bool,
+) (nmaDeleteDirectoriesOp, error) {
+	op, err := makeNMADeleteDirOpHelper(vdb, forceDelete, false /*retain catalog dir?*/)
 	if err != nil {
 		return op, err
 	}
-
 	return op, nil
 }
 
@@ -89,8 +79,16 @@ func makeNMADeleteDirsSandboxOp(
 	return op, nil
 }
 
-func (op *nmaDeleteDirectoriesOp) retainDirs() bool {
-	return op.retainDirsExceptCatSubDir || op.retainOnlyDepotDir
+func makeNMADeleteDirsRetainCatalogDirOp(
+	vdb *VCoordinationDatabase,
+	forceDelete bool,
+	retainCatalogDir bool) (nmaDeleteDirectoriesOp, error) {
+	op, err := makeNMADeleteDirOpHelper(vdb, forceDelete, retainCatalogDir)
+	if err != nil {
+		return op, err
+	}
+
+	return op, nil
 }
 
 func (op *nmaDeleteDirectoriesOp) buildRequestBody(
@@ -102,39 +100,31 @@ func (op *nmaDeleteDirectoriesOp) buildRequestBody(
 
 		// directories
 		dbCatalogPath := filepath.Join(vdb.CatalogPrefix, vdb.Name)
-		dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
-		dbDepotPath := ""
-		if vdb.UseDepot {
-			dbDepotPath = filepath.Join(vdb.DepotPrefix, vdb.Name)
-		}
-		// case 1: remove all directories
-		if !op.retainDirs() {
-			// most common case: remove everything -- catalog, data, depot and storage locations
+
+		if !op.retainCatalogDir {
+			// most common case
+			// if no need to retain catalog dir, remove everything
+			dbDataPath := filepath.Join(vdb.DataPrefix, vdb.Name)
 			p.Directories = append(p.Directories, vnode.CatalogPath, dbCatalogPath, dbDataPath)
+			p.Directories = append(p.Directories, vnode.StorageLocations...)
 			if vdb.UseDepot {
+				dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
 				p.Directories = append(p.Directories, vnode.DepotPath, dbDepotPath)
 			}
+
 			p.Directories = append(p.Directories, vnode.StorageLocations...)
-		} else {
-			// case 2: retain some directories
-			// if retainNonCatalogDir
-			// we only remove the v_<nodename>_catalog/Catalog directory
-			if op.retainDirsExceptCatSubDir {
-				p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
-				op.logger.Info("user specified retaining catalog directory of the database")
-			} else if op.retainOnlyDepotDir {
-				// remove every dir except for depot dirs
-				parentCatDir := filepath.Dir(vnode.CatalogPath)
-				p.Directories = append(p.Directories, parentCatDir)
+			if vdb.UseDepot {
+				dbDepotPath := filepath.Join(vdb.DepotPrefix, vdb.Name)
+				p.Directories = append(p.Directories, vnode.DepotPath)
 				if dbDepotPath != dbCatalogPath {
-					p.Directories = append(p.Directories, dbCatalogPath)
+					p.Directories = append(p.Directories, dbDepotPath)
 				}
-				if dbDepotPath != dbDataPath {
-					p.Directories = append(p.Directories, dbDataPath)
-				}
-				// actual data path will be removed as a storage location
-				p.Directories = append(p.Directories, vnode.StorageLocations...)
 			}
+		} else {
+			// if retainCatalogDir
+			// we only remove the v_<nodename>_catalog/Catalog directory
+			p.Directories = append(p.Directories, vnode.CatalogPath+nodeCatalogSubDirSuffix)
+			op.logger.Info("user specified retaining catalog directory of the database")
 		}
 
 		// force-delete

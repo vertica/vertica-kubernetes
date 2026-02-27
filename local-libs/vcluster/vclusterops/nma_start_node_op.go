@@ -35,14 +35,12 @@ type nmaStartNodeOp struct {
 	vdb                *VCoordinationDatabase
 	sandbox            bool
 	sandboxName        string
-	epoch              int64
 }
 
 type startNodeRequestData struct {
 	StartCommand []string          `json:"start_command"`
 	StartupConf  string            `json:"startup_conf"`
 	Environment  map[string]string `json:"special_environment,omitempty"`
-	LastEpoch    int64             `json:"last_epoch,omitempty"`
 }
 
 func makeNMAStartNodeOp(
@@ -74,10 +72,6 @@ func makeNMAStartNodeWithSandboxOpWithVDB(hosts []string, startupConf, sandboxNa
 	startNodeOp.vdb = vdb
 	startNodeOp.sandboxName = sandboxName
 	return startNodeOp
-}
-
-func (op *nmaStartNodeOp) setEpoch(epoch int64) {
-	op.epoch = epoch
 }
 
 func (op *nmaStartNodeOp) updateRequestBody(execContext *opEngineExecContext) error {
@@ -144,7 +138,6 @@ func (op *nmaStartNodeOp) updateHostRequestBodyMapFromNodeStartCommand(host stri
 		StartCommand: hostStartCommand,
 		StartupConf:  op.startupConf,
 		Environment:  util.SplitEnvVar(envPassThrough),
-		LastEpoch:    op.epoch,
 	}
 
 	for key, value := range startNodeData.Environment {

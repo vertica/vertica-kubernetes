@@ -151,7 +151,7 @@ func (c *CmdUnsandboxSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		return nil
 	}
 
-	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
+	writeErr := dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 	if writeErr != nil {
 		vcc.DisplayWarning(util.FailToWriteToConfig + writeErr.Error())
 		return nil

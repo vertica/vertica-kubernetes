@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/vertica/vcluster/rfc7807"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -33,8 +33,6 @@ type nmaPrepareDirectoriesOp struct {
 	// Hidden option for internal use
 	// Used in db revive - re-use existing catalog directories for reviving if true
 	useExistingCatalogDir bool
-	// used for add_subcluster to reuse existing depot dirs
-	useExistingDepotDirOnly bool
 }
 
 type prepareDirectoriesRequestData struct {
@@ -47,15 +45,14 @@ type prepareDirectoriesRequestData struct {
 	IgnoreParent         bool     `json:"ignore_parent"`
 }
 
-func makeNMAPrepareDirectoriesOpHelper(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive, useExistingCatalogDir, useExistingDepotDir bool) (nmaPrepareDirectoriesOp, error) {
+func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
+	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
 	op := nmaPrepareDirectoriesOp{}
 	op.name = "NMAPrepareDirectoriesOp"
 	op.description = "Create necessary directories on Vertica hosts"
 	op.forceCleanup = forceCleanup
 	op.forRevive = forRevive
-	op.useExistingCatalogDir = useExistingCatalogDir
-	op.useExistingDepotDirOnly = useExistingDepotDir
+	op.useExistingCatalogDir = false
 
 	err := op.setupRequestBody(hostNodeMap)
 	if err != nil {
@@ -67,44 +64,20 @@ func makeNMAPrepareDirectoriesOpHelper(hostNodeMap vHostNodeMap,
 	return op, nil
 }
 
-func makeNMAPrepareDirectoriesOp(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive bool) (nmaPrepareDirectoriesOp, error) {
-	op, err := makeNMAPrepareDirectoriesOpHelper(hostNodeMap, forceCleanup, forRevive,
-		false /*useExistingCatalogDir?*/, false /*useExistingDepotDir?*/)
-
+func makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap vHostNodeMap,
+	forceCleanup, forRevive bool, useExistingCatalogDir bool) (nmaPrepareDirectoriesOp, error) {
+	op, err := makeNMAPrepareDirectoriesOp(hostNodeMap, forceCleanup, forRevive)
 	if err != nil {
 		return op, err
 	}
+	op.useExistingCatalogDir = useExistingCatalogDir
+	// overwrite the descriptions
+	if op.useExistingCatalogDir {
+		op.name = "NMAPrepareDirsAllowUsingExistingCatalogDirOp"
+		op.description = "Create necessary directories on Vertica hosts, allowing using existing catalog directories"
+	}
 
 	return op, nil
-}
-
-func makeNMAPrepareDirsUseExistingDirOp(hostNodeMap vHostNodeMap,
-	forceCleanup, forRevive bool, useExistingCatalogDir, useExistingDepotDir bool) (nmaPrepareDirectoriesOp, error) {
-	op, err := makeNMAPrepareDirectoriesOpHelper(hostNodeMap, forceCleanup, forRevive,
-		useExistingCatalogDir, useExistingDepotDir)
-
-	if err != nil {
-		return op, err
-	}
-	if op.useExistingDirs() {
-		op.name = "NMAPrepareDirsAllowUsingExistingDirOp"
-		op.description = "Create necessary directories on Vertica hosts, allowing using existing directories: "
-
-		existingDirList := []string{}
-		if op.useExistingCatalogDir {
-			existingDirList = append(existingDirList, "all non /Catalog dirs")
-		}
-		if op.useExistingDepotDirOnly {
-			existingDirList = append(existingDirList, "depot dir")
-		}
-		op.description += strings.Join(existingDirList, ",")
-	}
-	return op, nil
-}
-
-func (op *nmaPrepareDirectoriesOp) useExistingDirs() bool {
-	return op.useExistingCatalogDir || op.useExistingDepotDirOnly
 }
 
 func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) error {
@@ -115,17 +88,16 @@ func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) er
 		prepareDirData.CatalogPath = getCatalogPath(hostNodeMap[host].CatalogPath)
 		prepareDirData.DepotPath = hostNodeMap[host].DepotPath
 		prepareDirData.StorageLocations = hostNodeMap[host].StorageLocations
-		prepareDirData.UserStorageLocations = hostNodeMap[host].UserStorageLocations
+		// filter out remote storage locations as vcluster will not be able to create them
+		for _, loc := range hostNodeMap[host].UserStorageLocations {
+			if !util.IsRemoteLocation(loc) {
+				prepareDirData.UserStorageLocations = append(prepareDirData.UserStorageLocations, loc)
+			}
+		}
+
 		prepareDirData.ForceCleanup = op.forceCleanup
 		prepareDirData.ForRevive = op.forRevive
 		prepareDirData.IgnoreParent = false
-
-		// this option is hidden from user interface
-		// we have to ignore parent in this case for re-using depot dir
-		// because otherwise the NMA will error out
-		if op.useExistingDepotDirOnly {
-			prepareDirData.IgnoreParent = true
-		}
 
 		dataBytes, err := json.Marshal(prepareDirData)
 		if err != nil {
@@ -187,24 +159,11 @@ func (op *nmaPrepareDirectoriesOp) processResult(_ *opEngineExecContext) error {
 			}
 		} else {
 			// if catalog directory exists and user specified using existing dir, skip the error
-			if op.useExistingDirs() {
+			if op.useExistingCatalogDir {
 				rfcError := &rfc7807.VProblem{}
-
-				if op.useExistingCatalogDir {
-					if isRFCError := errors.As(result.err, &rfcError); isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
-						op.logger.Info("using existing catalog directory", "details", result.err.Error())
-						continue
-					}
-				}
-				if op.useExistingDepotDirOnly {
-					isRFCError := errors.As(result.err, &rfcError)
-					if isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
-						op.logger.Info("using existing depot directory", "details", result.err.Error())
-						continue
-					} else if isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryParentDirectoryExists) {
-						op.logger.Info("using existing depot parent directory", "details", result.err.Error())
-						continue
-					}
+				if isRFCError := errors.As(result.err, &rfcError); isRFCError && (rfcError.ProblemID == rfc7807.CreateDirectoryExistError) {
+					op.logger.Info("using existing catalog directory", "details", result.err.Error())
+					continue
 				}
 			}
 

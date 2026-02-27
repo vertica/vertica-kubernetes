@@ -27,7 +27,7 @@ import (
 )
 
 type NodeLockEvents struct {
-	NodeName        string            `json:"node_name"`
+	NodeName        string
 	MaxDuration     string            `json:"max_duration"`
 	WaitStartTime   string            `json:"wait_start_time"`
 	WaitEndTime     string            `json:"wait_end_time"`

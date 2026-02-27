@@ -203,7 +203,7 @@ func (status resultStatus) getStatusString() string {
 
 // clusterOp interface requires that all ops implements
 // the following functions
-// log* implemented by embedding OpBase, but overridable
+// log* implemented by embedding OpBase, but overrideable
 type clusterOp interface {
 	getName() string
 	setLogger(logger vlog.Printer)
@@ -598,34 +598,27 @@ type ClusterCommands interface {
 	VAddSubcluster(options *VAddSubclusterOptions) error
 	VAlterSubclusterType(options *VAlterSubclusterTypeOptions) error
 	VCheckVClusterServerPid(options *VCheckVClusterServerPidOptions) ([]string, error)
-	VClusterHealth(options *VClusterHealthOptions) error
-	VCreateArchive(options *VCreateArchiveOptions) error
 	VCreateDatabase(options *VCreateDatabaseOptions) (VCoordinationDatabase, error)
+	VCreateArchive(options *VCreateArchiveOptions) error
 	VDropDatabase(options *VDropDatabaseOptions) error
 	VFetchCoordinationDatabase(options *VFetchCoordinationDatabaseOptions) (VCoordinationDatabase, error)
 	VFetchNodesDetails(options *VFetchNodesDetailsOptions) (NodesDetails, error)
 	VFetchNodeState(options *VFetchNodeStateOptions) ([]NodeInfo, error)
 	VGetDrainingStatus(options *VGetDrainingStatusOptions) (DrainingStatusList, error)
 	VInstallPackages(options *VInstallPackagesOptions) (*InstallPackageStatus, error)
-	VPollConnectionDraining(options *VPollConnectionDrainingOptions) error
-	VManageConnectionDraining(options *VManageConnectionDrainingOptions) error
 	VPollSubclusterState(options *VPollSubclusterStateOptions) error
 	VPromoteSandboxToMain(options *VPromoteSandboxToMainOptions) error
 	VReIP(options *VReIPOptions) error
 	VRemoveNode(options *VRemoveNodeOptions) (VCoordinationDatabase, error)
 	VRemoveSubcluster(removeScOpt *VRemoveScOptions) (VCoordinationDatabase, error)
 	VRenameSubcluster(options *VRenameSubclusterOptions) error
-	VReplaceNode(options *VReplaceNodeOptions) (VCoordinationDatabase, error)
 	VReplicateDatabase(options *VReplicationDatabaseOptions) (int64, error)
 	VReplicationStatus(options *VReplicationStatusDatabaseOptions) (*ReplicationStatusResponse, error)
-	VRestartNMA(options *VRestartNMAOptions) error
-	VReturnEpoch(options *VReturnEpochOptions) (int64, error)
 	VReviveDatabase(options *VReviveDatabaseOptions) (dbInfo string, vdbPtr *VCoordinationDatabase, err error)
 	VSandbox(options *VSandboxOptions) error
-	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
 	VScrutinize(options *VScrutinizeOptions) error
-	VSetConfigurationParameters(options *VSetConfigurationParameterOptions) error
 	VShowRestorePoints(options *VShowRestorePointsOptions) (restorePoints []RestorePoint, err error)
+	VSaveRestorePoint(options *VSaveRestorePointOptions) (err error)
 	VStartDatabase(options *VStartDatabaseOptions) (vdbPtr *VCoordinationDatabase, err error)
 	VStartNodes(options *VStartNodesOptions) error
 	VStartSubcluster(startScOpt *VStartScOptions) (VCoordinationDatabase, error)
@@ -634,13 +627,10 @@ type ClusterCommands interface {
 	VStopSubcluster(options *VStopSubclusterOptions) error
 	VUnsandbox(options *VUnsandboxOptions) error
 	VUpgradeLicense(options *VUpgradeLicenseOptions) error
-	VUpgradeVertica(options *VUpgradeVerticaOptions) error
-	VWorkloadCancel(options *VWorkloadCancelOptions) error
-	VUninstallPackages(options *VUninstallPackagesOptions) (*UninstallPackagesStatus, error)
-	VListPackages(options *VListPackagesOptions) (*ListPackageStatus, error)
-	VWorkloadCapture(options *VWorkloadCaptureOptions) error
+	VClusterHealth(options *VClusterHealthOptions) error
 	VWorkloadReplay(ctx context.Context, options *VWorkloadReplayOptions) error
-	VCloneSubclusterProperties(options *VCloneSubclusterPropertiesOptions) error
+	VWorkloadCapture(options *VWorkloadCaptureOptions) error
+	VWorkloadCancel(options *VWorkloadCancelOptions) error
 }
 
 type VClusterCommandsLogger struct {

@@ -45,7 +45,7 @@ func makeCmdClusterHealth() *cobra.Command {
 		clusterHealth,
 		"Checks the database cluster health. This is used for testing and debugging only.",
 		`Checks the database cluster health.
-
+		
 This is used for testing and debugging only.
 
 Examples:
@@ -102,10 +102,10 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		"The session id (for session start and slow event).",
 	)
 	cmd.Flags().StringVar(
-		&c.clusterHealthOptions.Threshold,
-		"threshold",
+		&c.clusterHealthOptions.Threadhold,
+		"threadhold",
 		"",
-		"The threshold of seconds for slow events (for get_slow_events).",
+		"The threadhold of seconds for slow events (for get_slow_events).",
 	)
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.ThreadID,
@@ -129,7 +129,7 @@ func (c *CmdClusterHealth) setLocalFlags(cmd *cobra.Command) {
 		&c.clusterHealthOptions.Display,
 		"display",
 		false,
-		"Whether display the cascade graph in console",
+		"Wheather display the cascade graph in console",
 	)
 	cmd.Flags().StringVar(
 		&c.clusterHealthOptions.Timezone,
@@ -197,7 +197,7 @@ const (
 	getTxnStarts       = "get_transaction_starts"
 	slowEventCascade   = "slow_event_cascade"
 	lockCascade        = "lock_cascade"
-	getMissingReleases = "get_missing_lock_releases"
+	getMissingReleases = "get_missing_releases"
 )
 
 func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
@@ -221,17 +221,17 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	case getTxnStarts:
 		bytes, err = json.MarshalIndent(options.TransactionStartsResult, "" /*prefix*/, " " /* indent for one space*/)
 	case getMissingReleases:
-		bytes, err = json.MarshalIndent(options.MissingLockReleasesResult, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.MissingReleasesResult, "", "")
 	case slowEventCascade:
-		bytes, err = json.MarshalIndent(options.SlowEventCascade, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.SlowEventCascade, "", " ")
 	case lockCascade:
-		bytes, err = json.MarshalIndent(options.LockEventCascade, "" /*prefix*/, " " /* indent for one space*/)
+		bytes, err = json.MarshalIndent(options.LockEventCascade, "", " ")
 	default: // by default, we will build a super result which contains all three analysis results
 		resultSet := struct {
 			SlowEventCascade any `json:"slow_event_cascade"`
 			LockEventCascade any `json:"lock_event_cascade"`
-			MissingReleases  any `json:"missing_lock_releases"`
-		}{options.SlowEventCascade, options.LockEventCascade, options.MissingLockReleasesResult}
+			MissingReleases  any `json:"missing_releases"`
+		}{options.SlowEventCascade, options.LockEventCascade, options.MissingReleasesResult}
 		bytes, err = json.MarshalIndent(resultSet, "", " ")
 	}
 
@@ -246,10 +246,9 @@ func (c *CmdClusterHealth) Run(vcc vclusterops.ClusterCommands) error {
 	vcc.LogInfo("event traceback: ", "slow events", string(bytes))
 
 	if options.Display {
-		switch options.Operation {
-		case "", slowEventCascade:
+		if options.Operation == "" || options.Operation == slowEventCascade {
 			options.DisplayMutexEventsCascade()
-		case lockCascade:
+		} else if options.Operation == lockCascade {
 			options.DisplayLockEventsCascade()
 		}
 	}

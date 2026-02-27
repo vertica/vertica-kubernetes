@@ -32,12 +32,11 @@ type VAddSubclusterOptions struct {
 	// part 1: basic db info
 	DatabaseOptions
 	// part 2: subcluster info
-	SCName              string
-	IsPrimary           bool
-	ControlSetSize      int
-	CloneSC             string
-	SandboxName         string
-	UseExistingDepotDir bool
+	SCName         string
+	IsPrimary      bool
+	ControlSetSize int
+	CloneSC        string
+	SandboxName    string
 	// part 3: add node info
 	VAddNodeOptions
 }
@@ -93,7 +92,7 @@ func (options *VAddSubclusterOptions) validateEonOptions() error {
 	return nil
 }
 
-func (options *VAddSubclusterOptions) validateExtraOptions() error {
+func (options *VAddSubclusterOptions) validateExtraOptions(logger vlog.Printer) error {
 	// control-set-size can only be -1 or [1 to 120]
 	if !(options.ControlSetSize == ControlSetSizeDefaultValue ||
 		(options.ControlSetSize >= ControlSetSizeLowerBound && options.ControlSetSize <= ControlSetSizeUpperBound)) {
@@ -102,13 +101,8 @@ func (options *VAddSubclusterOptions) validateExtraOptions() error {
 	}
 
 	if options.CloneSC != "" {
-		if options.IsPrimary {
-			return fmt.Errorf("cannot use CloneSC with IsPrimary")
-		}
-
-		if options.ControlSetSize != ControlSetSizeDefaultValue {
-			return fmt.Errorf("cannot use CloneSC with custom ControlSetSize")
-		}
+		// TODO remove this log after we supported subcluster clone
+		logger.PrintWarning("option CloneSC is not implemented yet so it will be ignored")
 	}
 
 	return nil
@@ -126,7 +120,7 @@ func (options *VAddSubclusterOptions) validateParseOptions(logger vlog.Printer) 
 		return err
 	}
 	// batch 3: validate all other params
-	err = options.validateExtraOptions()
+	err = options.validateExtraOptions(logger)
 	if err != nil {
 		return err
 	}
@@ -198,17 +192,9 @@ func (vcc VClusterCommands) VAddSubcluster(options *VAddSubclusterOptions) error
 // for a successful add_subcluster:
 //   - Get cluster info from running db and exit error if the db is an enterprise db
 //   - Get UP nodes through HTTPS call, if any node is UP then the DB is UP and ready for adding a new subcluster
-//   - Validate clone source subcluster if --like is specified (check existence and node count)
 //   - Add the subcluster catalog object through HTTPS call, and check the response to error out
 //     if the subcluster name already exists
 //   - Check if the new subcluster is created in database through HTTPS call
-//
-// When --like is used (CloneSC is set):
-//   - Validate source exists and node count matches
-//   - CREATE SUBCLUSTER ... LIKE copies is_primary and control_set_size
-//   - Verify target exists. Properties are cloned by DDL.
-//   - clone_subcluster_properties called later to clone resource pools, subscriptions,
-//     and node-level properties (params, control assignments)
 func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubclusterOptions) ([]clusterOp, error) {
 	var instructions []clusterOp
 	vdb := makeVCoordinationDatabase()
@@ -241,64 +227,23 @@ func (vcc *VClusterCommands) produceAddSubclusterInstructions(options *VAddSubcl
 		return instructions, err
 	}
 
-	// First get up nodes, then validate clone source
-	instructions = append(instructions,
-		&nmaHealthOp,
-		&httpsGetUpNodesOp,
-	)
-
-	// Validate clone source if --like is specified
-	// This ensures the source subcluster exists and has the expected node count
-	// before we attempt to create the target subcluster
-	if options.CloneSC != "" {
-		// Validate source subcluster exists
-		httpsValidateSourceOp, err := makeHTTPSGetSubclusterInfoOp(
-			options.usePassword, username, options.Password,
-			options.CloneSC,
-			CloneSubclusterPropertiesCmd)
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &httpsValidateSourceOp)
-
-		// Validate node count matches between source and target
-		httpsCheckCloneSourceOp, err := makeHTTPSCheckCloneSourceOp(
-			options.usePassword, username, options.Password,
-			options.CloneSC, len(options.NewHosts))
-		if err != nil {
-			return instructions, err
-		}
-		instructions = append(instructions, &httpsCheckCloneSourceOp)
-	}
 	httpsAddSubclusterOp, err := makeHTTPSAddSubclusterOp(options.usePassword, username, options.Password,
-		options.SCName, options.IsPrimary, options.ControlSetSize, options.CloneSC)
+		options.SCName, options.IsPrimary, options.ControlSetSize)
 	if err != nil {
 		return instructions, err
 	}
 
-	// Only verify specific properties if NOT using --like
-	var httpsCheckTargetOp clusterOp
-	if options.CloneSC == "" {
-		// Normal case: verify exact properties (is_primary, control_set_size)
-		checkOp, err := makeHTTPSCheckSubclusterOp(options.usePassword, username, options.Password,
-			options.SCName, options.IsPrimary, options.ControlSetSize)
-		if err != nil {
-			return instructions, err
-		}
-		httpsCheckTargetOp = &checkOp
-	} else {
-		// Clone case: Verify the TARGET subcluster exists. Properties are cloned by DDL.
-		getInfoOp, err := makeHTTPSGetSubclusterInfoOp(options.usePassword, username, options.Password,
-			options.SCName, CloneSubclusterPropertiesCmd)
-		if err != nil {
-			return instructions, err
-		}
-		httpsCheckTargetOp = &getInfoOp
+	httpsCheckSubclusterOp, err := makeHTTPSCheckSubclusterOp(options.usePassword, username, options.Password,
+		options.SCName, options.IsPrimary, options.ControlSetSize)
+	if err != nil {
+		return instructions, err
 	}
 
 	instructions = append(instructions,
+		&nmaHealthOp,
+		&httpsGetUpNodesOp,
 		&httpsAddSubclusterOp,
-		httpsCheckTargetOp,
+		&httpsCheckSubclusterOp,
 	)
 
 	return instructions, nil

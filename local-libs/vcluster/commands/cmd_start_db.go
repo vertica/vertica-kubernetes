@@ -73,15 +73,9 @@ Examples:
   vcluster start_db --password testpassword \
     --config /home/dbadmin/vertica_cluster.yaml --main-cluster-only \
     --password "PASSWORD"
-
-  # Start a database from a specified epoch
-  vcluster start_db --epoch 10
-
-  # Start a database from the last good epoch
-  vcluster start_db --epoch last
 `,
 		[]string{dbNameFlag, hostsFlag, communalStorageLocationFlag, ipv6Flag,
-			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag, epochFlag},
+			configFlag, catalogPathFlag, passwordFlag, eonModeFlag, configParamFlag},
 	)
 
 	// local flags
@@ -122,15 +116,6 @@ func (c *CmdStartDB) setLocalFlags(cmd *cobra.Command) {
 		"sync-catalog",
 		false,
 		"Whether to sync the catalog after all nodes are up",
-	)
-
-	cmd.Flags().StringVar(
-		&c.startDBOptions.Epoch,
-		"epoch",
-		"",
-		"[Enterprise Only] Epoch at which the database is to be started from. "+
-			"If '--epoch last' is given as an argument, the database is restarted from the last good epoch. "+
-			"May cause data loss. Use with caution!",
 	)
 }
 
@@ -285,7 +270,6 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 
 	// for Eon database, update config file to fill nodes' subcluster information
 	if readConfigErr == nil && options.IsEon {
-		// TODO: add log for this too
 		c.UpdateConfigFileForEon(vdb, vcc)
 	}
 
@@ -301,7 +285,7 @@ func (c *CmdStartDB) Run(vcc vclusterops.ClusterCommands) error {
 func (c *CmdStartDB) UpdateConfigFileForEon(vdb *vclusterops.VCoordinationDatabase, vcc vclusterops.ClusterCommands) {
 	// write db info to vcluster config file
 	vdb.FirstStartAfterRevive = false
-	err := writeConfig(vdb, true /*forceOverwrite*/, vcc.GetLog())
+	err := writeConfig(vdb, true /*forceOverwrite*/)
 	if err != nil {
 		vcc.DisplayWarning("fail to update config file, details: %s", err)
 	}

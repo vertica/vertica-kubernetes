@@ -28,7 +28,6 @@ import (
 type CmdReIP struct {
 	reIPOptions  *vclusterops.VReIPOptions
 	reIPFilePath string
-	ksafety      int
 
 	CmdBase
 }
@@ -68,13 +67,11 @@ Examples:
     --config /opt/vertica/config/vertica_cluster.yaml \
     --password "PASSWORD"
 `,
-		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag,
-			configFlag, sandboxFlag, eonModeFlag, communalStorageLocationFlag},
+		[]string{dbNameFlag, hostsFlag, ipv6Flag, catalogPathFlag, configParamFlag, configFlag, sandboxFlag},
 	)
 
 	// local flags
 	newCmd.setLocalFlags(cmd)
-	newCmd.setHiddenFlags(cmd)
 
 	// require re-ip-file
 	markFlagsRequired(cmd, reIPFileFlag)
@@ -97,25 +94,6 @@ func (c *CmdReIP) setLocalFlags(cmd *cobra.Command) {
 		"",
 		"The name of the sandbox. Required if the re-ip hosts are in a sandbox.",
 	)
-	cmd.Flags().IntVarP(
-		&c.ksafety,
-		ksafetyFlag,
-		"k",
-		-1,
-		"K-safety value for the database. Set to 0 to bypass quorum checks.",
-	)
-}
-
-// setHiddenFlags will set the hidden flags the command has.
-// The hidden flag will not be shown in help and usage of the command, and they will be used internally.
-func (c *CmdReIP) setHiddenFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(
-		&c.reIPOptions.ForceLoadRemoteCatalog,
-		forceLoadRemoteCatalog,
-		false,
-		"",
-	)
-	hideLocalFlags(cmd, []string{forceLoadRemoteCatalog})
 }
 
 func (c *CmdReIP) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -146,12 +124,6 @@ func (c *CmdReIP) validateParse(logger vlog.Printer) error {
 	if err != nil {
 		return err
 	}
-
-	// Set ksafety if provided
-	if c.ksafety >= 0 {
-		c.reIPOptions.Ksafety = c.ksafety
-	}
-
 	return c.reIPOptions.ReadReIPFile(c.reIPFilePath)
 }
 
@@ -174,16 +146,12 @@ func (c *CmdReIP) Run(vcc vclusterops.ClusterCommands) error {
 		return err
 	}
 
-	if options.ForceLoadRemoteCatalog {
-		vcc.DisplayInfo("Successfully load catalog from communal storage.")
-	} else {
-		vcc.DisplayInfo("Successfully updated the IP addresses of database nodes.")
-	}
+	vcc.DisplayInfo("Successfully updated the IP addresses of database nodes.")
 
 	// update config file after running re_ip
 	if canUpdateConfig {
 		c.UpdateConfig(dbConfig)
-		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
+		err = dbConfig.write(options.ConfigPath, true /*forceOverwrite*/)
 		if err != nil {
 			vcc.DisplayWarning("Failed to update configuration file: %v\n", err)
 		}

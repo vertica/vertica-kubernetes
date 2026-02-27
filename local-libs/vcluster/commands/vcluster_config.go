@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/util"
-	"github.com/vertica/vcluster/vclusterops/vlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -192,26 +191,24 @@ func loadConfigToViper() error {
 
 // writeConfig can write database information to vertica_cluster.yaml.
 // It will be called in the end of some subcommands that will change the db state.
-func writeConfig(
-	vdb *vclusterops.VCoordinationDatabase, forceOverwrite bool, logger vlog.Printer) error {
+func writeConfig(vdb *vclusterops.VCoordinationDatabase, forceOverwrite bool) error {
 	if dbOptions.ConfigPath == "" {
 		return fmt.Errorf("configuration file path is empty")
 	}
 
-	return WriteConfigToPath(vdb, dbOptions.ConfigPath, forceOverwrite, logger)
+	return WriteConfigToPath(vdb, dbOptions.ConfigPath, forceOverwrite)
 }
 
 func WriteConfigToPath(vdb *vclusterops.VCoordinationDatabase,
 	configPath string,
-	forceOverwrite bool,
-	logger vlog.Printer) error {
+	forceOverwrite bool) error {
 	dbConfig, err := readVDBToDBConfig(vdb)
 	if err != nil {
 		return err
 	}
 
 	// update db config with the given database info
-	err = dbConfig.write(configPath, forceOverwrite, logger)
+	err = dbConfig.write(configPath, forceOverwrite)
 	if err != nil {
 		return err
 	}
@@ -353,8 +350,7 @@ func readConfig() (dbConfig *DatabaseConfig, err error) {
 // any write error encountered. The viper in-built write function cannot
 // work well(the order of keys cannot be customized) so we used yaml.Marshal()
 // and os.WriteFile() to write the config file.
-func (c *DatabaseConfig) write(
-	configFilePath string, forceOverwrite bool, logger vlog.Printer) error {
+func (c *DatabaseConfig) write(configFilePath string, forceOverwrite bool) error {
 	if util.CheckPathExist(configFilePath) && !forceOverwrite {
 		return fmt.Errorf("file %s exist, consider using --force-overwrite-file to overwrite the file", configFilePath)
 	}
@@ -372,15 +368,12 @@ func (c *DatabaseConfig) write(
 		return fmt.Errorf("fail to write configuration file, details: %w", err)
 	}
 
-	logger.Info("Config file updated", "location", configFilePath)
-
 	return nil
 }
 
 // Exposing the write function for external packages
-func (c *DatabaseConfig) Write(
-	configFilePath string, forceOverwrite bool, logger vlog.Printer) error {
-	return c.write(configFilePath, forceOverwrite, logger)
+func (c *DatabaseConfig) Write(configFilePath string, forceOverwrite bool) error {
+	return c.write(configFilePath, forceOverwrite)
 }
 
 // getHosts returns host addresses of all nodes in database

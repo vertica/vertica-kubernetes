@@ -32,11 +32,10 @@ type httpsStopDBOp struct {
 	mainCluster   bool
 	RequestParams map[string]string
 	isEon         bool
-	forceKill     bool
 }
 
 func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
-	httpsPassword *string, timeout *int, sandbox string, mainCluster, isEon bool, forceKill bool) (httpsStopDBOp, error) {
+	httpsPassword *string, timeout *int, sandbox string, mainCluster, isEon bool) (httpsStopDBOp, error) {
 	op := httpsStopDBOp{}
 	op.name = "HTTPSStopDBOp"
 	op.description = "Stop database"
@@ -44,14 +43,12 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 	op.sandbox = sandbox
 	op.mainCluster = mainCluster
 	op.isEon = isEon
-	op.forceKill = forceKill
 
 	// set the query params, "timeout" is optional
 	op.RequestParams = make(map[string]string)
-	if timeout != nil && *timeout >= 0 {
+	if timeout != nil && *timeout != 0 {
 		op.RequestParams["timeout"] = strconv.Itoa(*timeout)
 	}
-	op.RequestParams["forceKill"] = strconv.FormatBool(forceKill)
 
 	if useHTTPPassword {
 		err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
@@ -61,7 +58,6 @@ func makeHTTPSStopDBOp(useHTTPPassword bool, userName string,
 		op.userName = userName
 		op.httpsPassword = httpsPassword
 	}
-
 	return op, nil
 }
 

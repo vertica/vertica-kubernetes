@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
 )
 
@@ -54,7 +53,7 @@ func TestVSetConfigurationParameterOptions_validateParseOptions(t *testing.T) {
 
 	// positive: value is "null"
 	opt.UserName = testUsername
-	opt.Value = util.NullVal
+	opt.Value = "null"
 	err = opt.validateParseOptions(logger)
 	assert.NoError(t, err)
 

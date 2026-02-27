@@ -65,17 +65,8 @@ Examples:
 	// require name of subcluster to remove
 	markFlagsRequired(cmd, subclusterFlag)
 
-	// hide this flag because this is an advanced use case
-	// where we expect users to re-use the depot for adding a new subcluster
-	cmd.Flags().BoolVar(
-		&newCmd.removeScOptions.RetainDepotDir,
-		retainDepotDirFlag,
-		false,
-		"Retain existing depot directories",
-	)
-
 	// hide eon mode flag since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{eonModeFlag, retainDepotDirFlag})
+	hideLocalFlags(cmd, []string{eonModeFlag})
 
 	return cmd
 }
@@ -146,7 +137,7 @@ func (c *CmdRemoveSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		options.SCName, options.DBName)
 
 	// write db info to vcluster config file
-	err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
+	err = writeConfig(&vdb, true /*forceOverwrite*/)
 	if err != nil {
 		vcc.DisplayWarning("Failed to write the configuration file: %s", err)
 	}

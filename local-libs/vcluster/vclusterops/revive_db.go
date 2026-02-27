@@ -308,7 +308,7 @@ func (vcc VClusterCommands) producePreReviveDBInstructions(options *VReviveDatab
 	nmaHealthOp := makeNMAHealthOp(options.Hosts)
 
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(options.Hosts, false, /*use password auth*/
-		"" /*username for https call*/, nil /*password for https call*/, ReviveDB, options.DBName)
+		"" /*username for https call*/, nil /*password for https call*/, ReviveDB)
 	if err != nil {
 		return instructions, err
 	}
@@ -431,8 +431,8 @@ func (vcc VClusterCommands) produceReviveDBInstructions(options *VReviveDatabase
 	}
 
 	// prepare all directories
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingDirOp(hostNodeMap, options.ForceRemoval,
-		true /*for db revive*/, options.UseExistingCatalogDir /*use existing dir*/, false /*useExistingDepotDirOnly?*/)
+	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingCatalogDirOp(hostNodeMap, options.ForceRemoval,
+		true /*for db revive*/, options.UseExistingCatalogDir /*use existing dir*/)
 	if err != nil {
 		return instructions, err
 	}

@@ -146,13 +146,12 @@ func (vcc VClusterCommands) produceDropDBInstructions(vdb *VCoordinationDatabase
 	// when checking the running database,
 	// drop_db has the same checking items with create_db
 	checkDBRunningOp, err := makeHTTPSCheckRunningDBOp(hosts, usePassword,
-		options.UserName, options.Password, DropDB, options.DBName)
+		options.UserName, options.Password, DropDB)
 	if err != nil {
 		return instructions, err
 	}
 
-	nmaDeleteDirectoriesOp, err := makeNMADeleteDirectoriesOp(vdb, options.ForceDelete,
-		options.RetainCatalogDir, false /*retainOnlyDepotDir?*/)
+	nmaDeleteDirectoriesOp, err := makeNMADeleteDirsRetainCatalogDirOp(vdb, options.ForceDelete, options.RetainCatalogDir)
 	if err != nil {
 		return instructions, err
 	}

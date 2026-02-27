@@ -39,7 +39,6 @@ type nmaWorkloadReplayOp struct {
 
 	workloadReplayData *workloadReplayData
 	JobID              int64
-	quickReplay        bool // if true, executes queries without delay
 }
 
 func makeNMAWorkloadReplayOp(hosts []string, usePassword bool, hostNodeMap vHostNodeMap,
@@ -87,7 +86,12 @@ func (op *nmaWorkloadReplayOp) updateRequestBody(hosts []string, query VWorkload
 		op.nmaWorkloadReplayRequestData.StmtType = query.VStmtType
 		op.nmaWorkloadReplayRequestData.FileName = query.VFileName
 		op.nmaWorkloadReplayRequestData.JobID = op.JobID
-		op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
+
+		if query.VFileDir != "" {
+			op.nmaWorkloadReplayRequestData.FileDir = op.hostNodeMap[host].CatalogPath
+		} else {
+			op.nmaWorkloadReplayRequestData.FileDir = query.VFileDir
+		}
 
 		dataBytes, err := json.Marshal(op.nmaWorkloadReplayRequestData)
 		if err != nil {
@@ -174,13 +178,8 @@ func (op *nmaWorkloadReplayOp) prepareRequest(originalQuery *workloadQuery, quer
 }
 
 func parseWorkloadTime(timestamp string) (time.Time, error) {
-	parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
-	if err == nil {
-		return parsedTime, nil
-	}
-	// Fallback to legacy format
-	const fallbackFormat = "2006-01-02T15:04:05.999999-07:00"
-	parsedTime, err = time.Parse(fallbackFormat, timestamp)
+	const dateFormat = "2006-01-02T15:04:05.999999-07:00"
+	parsedTime, err := time.Parse(dateFormat, timestamp)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("fail to parse workload timestamp: %w", err)
 	}
@@ -219,32 +218,28 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 		default:
 			replayProgress := fmt.Sprintf("%d/%d", index, len(originalData))
 
-			if !op.quickReplay {
-				// Determine if we're behind or ahead of schedule
-				originalQueryStartTime, err := parseWorkloadTime(workloadQuery.StartTimestamp)
-				if err != nil {
-					return err // Shouldn't happen since we do validation ahead of time
-				}
-				originalElapsedTime := originalQueryStartTime.Sub(originalStartTime)
-				currentElapsedTime := time.Since(replayStartTime)
-				// If we're ahead of schedule, sleep
-				if currentElapsedTime < originalElapsedTime {
-					sleepDuration := originalElapsedTime - currentElapsedTime
-					op.logger.Log.Info("Workload replay ahead of schedule, sleeping", "name",
-						op.name, "progress", replayProgress, "duration", sleepDuration)
-					select {
-					case <-time.After(sleepDuration):
-						// Sleep finished, continue to the next iteration
-					case <-execContext.workloadReplyCtx.Done():
-						op.logger.Log.Info("%s: Workload replay canceled during sleep: %v", op.name, execContext.workloadReplyCtx.Err())
-						return execContext.workloadReplyCtx.Err()
-					}
-				} else {
-					op.logger.Log.Info("Workload replay behind schedule, running next query", "name", op.name, "progress", replayProgress)
+			// Determine if we're behind or ahead of schedule
+			originalQueryStartTime, err := parseWorkloadTime(workloadQuery.StartTimestamp)
+			if err != nil {
+				return err // Shouldn't happen since we do validation ahead of time
+			}
+			originalElapsedTime := originalQueryStartTime.Sub(originalStartTime)
+			currentElapsedTime := time.Since(replayStartTime)
+
+			// If we're ahead of schedule, sleep
+			if currentElapsedTime < originalElapsedTime {
+				sleepDuration := originalElapsedTime - currentElapsedTime
+				op.logger.Log.Info("Workload replay ahead of schedule, sleeping", "name",
+					op.name, "progress", replayProgress, "duration", sleepDuration)
+				select {
+				case <-time.After(sleepDuration):
+					// Sleep finished, continue to the next iteration
+				case <-execContext.workloadReplyCtx.Done():
+					op.logger.Log.Info("%s: Workload replay canceled during sleep: %v", op.name, execContext.workloadReplyCtx.Err())
+					return execContext.workloadReplyCtx.Err()
 				}
 			} else {
-				// Quick replay mode — run queries immediately
-				op.logger.Log.Info("Quick replay mode active — running next query immediately", "name", op.name, "progress", replayProgress)
+				op.logger.Log.Info("Workload replay behind schedule, running next query", "name", op.name, "progress", replayProgress)
 			}
 
 			// Preprocess query
@@ -252,7 +247,7 @@ func (op *nmaWorkloadReplayOp) executeWorkloadReplay(execContext *opEngineExecCo
 				bodyParams: VWorkloadPreprocessParams{
 					VRequest:     workloadQuery.Request,
 					VCatalogPath: "/"}}
-			err = w.PreprocessQuery(op.logger.Log)
+			err = w.PreprocessQuery()
 			if err != nil {
 				op.appendReplayErrorRow(err)
 				continue

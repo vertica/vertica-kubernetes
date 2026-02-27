@@ -621,3 +621,18 @@ func TestSplitEnvVar(t *testing.T) {
 		})
 	}
 }
+
+func TestIsRemoteLocation(t *testing.T) {
+	localTestLocation := "/local/path/for/test"
+	res := IsRemoteLocation(localTestLocation)
+	assert.Equal(t, res, false)
+
+	// test a remote location
+	remoteTestLocation := "https://s3.region-code.amazonaws.com/bucket-name/key-name"
+	res = IsRemoteLocation(remoteTestLocation)
+	assert.Equal(t, res, true)
+
+	customRemoteLoc := "s3://adgear-etl-audience-planner/"
+	res = IsRemoteLocation(customRemoteLoc)
+	assert.Equal(t, res, true)
+}

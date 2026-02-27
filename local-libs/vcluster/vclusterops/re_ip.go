@@ -20,14 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/vertica/vcluster/vclusterops/util"
 	"github.com/vertica/vcluster/vclusterops/vlog"
-	"golang.org/x/exp/maps"
 )
-
-const defaultKsafety = 1
 
 type VReIPOptions struct {
 	DatabaseOptions
@@ -42,12 +38,6 @@ type VReIPOptions struct {
 	// perform an additional HTTPS check (checkRunningDB operation) to verify that the database is running.
 	// This is useful when Re-IP should only be applied to down db.
 	CheckDBRunning bool
-	// optional ksafety parameter with default value of 1
-	Ksafety int
-
-	// hidden option
-	newAddresses           []string
-	ForceLoadRemoteCatalog bool
 }
 
 func VReIPFactory() VReIPOptions {
@@ -56,7 +46,6 @@ func VReIPFactory() VReIPOptions {
 	options.setDefaultValues()
 	options.TrimReIPList = false
 	options.SandboxName = util.MainClusterSandbox
-	options.Ksafety = defaultKsafety
 	return options
 }
 
@@ -194,12 +183,6 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		}
 	}
 
-	// for debugging only, once --force-load-remote-catalog is set,
-	// we will skip the regular re-ip but directly load remote catalog
-	if options.ForceLoadRemoteCatalog {
-		return vcc.loadRemoteCatalogPostReip(options, nil)
-	}
-
 	// produce re-ip instructions
 	instructions, err := vcc.produceReIPInstructions(options, pVDB)
 	if err != nil {
@@ -221,52 +204,6 @@ func (vcc VClusterCommands) VReIP(options *VReIPOptions) error {
 		runError := clusterOpEngine.runInSandbox(vcc.Log, pVDB, options.SandboxName)
 		if runError != nil {
 			return fmt.Errorf("fail to re-ip: %w", runError)
-		}
-	}
-
-	// cache NMA VDB for the extra steps
-	nmaVdb := clusterOpEngine.execContext.nmaVDatabase
-	// if re-ip failed due to quorum check, update the node catalog by loading remote catalog from communal storage on primary nodes
-	if clusterOpEngine.execContext.quorumLost && options.IsEon {
-		vcc.LogInfo("Quorum check failed, run re-ip by loading remote catalog from communal storage")
-		return vcc.loadRemoteCatalogPostReip(options, &nmaVdb)
-	}
-
-	return nil
-}
-
-func (vcc VClusterCommands) loadRemoteCatalogPostReip(options *VReIPOptions, nmaVdb *nmaVDatabase) error {
-	// get the old vdb either from the communal storage or from the catalog editor
-	var oldVdb VCoordinationDatabase
-	if nmaVdb == nil {
-		const warningMsg = " for an Eon database, re-ip by loading remote catalog could fail " +
-			util.DBInfo
-		vdbFromCommunal, err := options.getVDBFromSandboxWhenDBIsDown(vcc, options.SandboxName)
-		if err != nil {
-			vcc.Log.PrintWarning(util.CommStorageFail + warningMsg)
-		}
-		oldVdb = vdbFromCommunal
-	} else {
-		populateVdbFromNMAVdb(&oldVdb, nmaVdb)
-	}
-	oldVdb.CommunalStorageLocation = options.CommunalStorageLocation
-
-	extraStepInstructions, newVdb, err := vcc.produceExtraReIPInstructions(options, &oldVdb)
-	if err != nil {
-		return fmt.Errorf("fail to produce extra instructions, %w", err)
-	}
-	clusterOpEngine := makeClusterOpEngine(extraStepInstructions, options)
-
-	if options.SandboxName == util.MainClusterSandbox {
-		runError := clusterOpEngine.run(vcc.Log)
-		if runError != nil {
-			return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
-		}
-	} else {
-		vcc.LogInfo("Load remote catalog for the sandbox", "sandbox", options.SandboxName)
-		runError := clusterOpEngine.runInSandbox(vcc.Log, newVdb, options.SandboxName)
-		if runError != nil {
-			return fmt.Errorf("fail to run extra steps of re-ip: %w", runError)
 		}
 	}
 
@@ -304,7 +241,7 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 			mainCluster = true
 		}
 		checkDBRunningOp, err := makeHTTPSCheckRunningDBWithSandboxOp(hosts,
-			options.usePassword, options.UserName, sandbox, mainCluster, options.Password, ReIP, options.DBName)
+			options.usePassword, options.UserName, sandbox, mainCluster, options.Password, ReIP)
 		if err != nil {
 			return instructions, err
 		}
@@ -316,7 +253,6 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	for _, info := range options.ReIPList {
 		newAddresses = append(newAddresses, info.TargetAddress)
 	}
-	options.newAddresses = newAddresses
 	nmaNetworkProfileOp := makeNMANetworkProfileOp(newAddresses)
 
 	instructions = append(instructions, &nmaNetworkProfileOp)
@@ -353,82 +289,56 @@ func (vcc VClusterCommands) produceReIPInstructions(options *VReIPOptions, vdb *
 	// re-ip
 	// at this stage the re-ip info should either by provided by
 	// the re-ip file (for vcluster CLI) or the Kubernetes operator
-	nmaReIPOp := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList, options.Ksafety)
-	instructions = append(instructions, &nmaReIPOp)
+	nmaReIPOP := makeNMAReIPOp(options.ReIPList, vdb, options.TrimReIPList)
+	instructions = append(instructions, &nmaReIPOP)
+	// Load Catalog from communal location on primary nodes in case we lose quorum during reip
+	if options.IsEon {
+		oldHosts, newVdb := options.genNewVdb(vdb, vcc.Log)
+		if len(oldHosts) != len(newVdb.HostList) {
+			return instructions, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
+		}
+		nmaNetworkProfilePostReip := makeNMANetworkProfileOp(newVdb.HostList)
+		nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts, options.ConfigurationParameters,
+			newVdb, options.SandboxName)
+		nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(newVdb, options.SandboxName, newAddresses)
+		if err != nil {
+			return instructions, err
+		}
+		instructions = append(instructions, &nmaNetworkProfilePostReip, &nmaLoadRemoteCatalogOp, &nmaReadCatEdOp)
+	}
 
 	return instructions, nil
 }
 
-// produceExtraReIPInstructions generates additional instructions to handle cases where the quorum check fails
-func (vcc VClusterCommands) produceExtraReIPInstructions(options *VReIPOptions, oldVdb *VCoordinationDatabase) (
-	[]clusterOp, *VCoordinationDatabase, error) {
-	var instructions []clusterOp
-
-	// build a new vdb with the new IPs in the re-ip list
-	newVdb := options.genNewVdb(oldVdb, vcc.Log)
-	oldHosts := maps.Keys(oldVdb.HostNodeMap)
-	if len(oldHosts) != len(newVdb.HostList) {
-		return instructions, newVdb, fmt.Errorf("the number of new hosts does not match the number of nodes in original database")
-	}
-
-	nmaPrepareDirectoriesOp, err := makeNMAPrepareDirsUseExistingDirOp(newVdb.HostNodeMap, true, /*force cleanup*/
-		true /*for db revive*/, true /*use existing dir*/, false /*useExistingDepotDirOnly*/)
-	if err != nil {
-		return instructions, newVdb, err
-	}
-
-	nmaNetworkProfilePostReip := makeNMANetworkProfileOp(newVdb.HostList)
-	nmaLoadRemoteCatalogOp := makeNMALoadRemoteCatalogForInPlaceRevive(oldHosts, options.ConfigurationParameters,
-		newVdb, options.SandboxName)
-
-	// confirm at least one host has the latest catalog
-	nmaReadCatEdOp, err := makeNMAReadCatalogEditorOpForInPlaceRevive(newVdb, options.SandboxName, options.newAddresses)
-	if err != nil {
-		return instructions, newVdb, err
-	}
-	instructions = append(instructions, &nmaPrepareDirectoriesOp, &nmaNetworkProfilePostReip, &nmaLoadRemoteCatalogOp, &nmaReadCatEdOp)
-
-	return instructions, newVdb, nil
-}
-
-func (options *VReIPOptions) genNewVdb(vdb *VCoordinationDatabase, logger vlog.Printer) *VCoordinationDatabase {
-	// create a node name to host map
-	nodenameToHostMap := make(map[string]string)
-	for host, vnode := range vdb.HostNodeMap {
-		nodenameToHostMap[vnode.Name] = host
+func (options *VReIPOptions) genNewVdb(vdb *VCoordinationDatabase, logger vlog.Printer) ([]string, *VCoordinationDatabase) {
+	nodeHostMap := make(map[string]*VCoordinationNode)
+	// Create a node-name to vnode map
+	for _, vnode := range vdb.HostNodeMap {
+		nodeHostMap[vnode.Name] = vnode
 	}
 	newVdb := new(VCoordinationDatabase)
-	newVdb.HostNodeMap = util.CopyMap(vdb.HostNodeMap)
+	newVdb.HostNodeMap = makeVHostNodeMap()
 	newVdb.Name = vdb.Name
 	newVdb.CommunalStorageLocation = vdb.CommunalStorageLocation
-
-	// replace old IPs with new IPs
-	for i, info := range options.ReIPList {
-		if host, exists := nodenameToHostMap[info.NodeName]; exists {
-			// in case the re-ip item is given as: node name -> new IP
-			vnode := newVdb.HostNodeMap[host]
-			vnode.Address = info.TargetAddress
-			newVdb.HostNodeMap[info.TargetAddress] = vnode
-			delete(newVdb.HostNodeMap, host)
-		} else if vnode, exists := vdb.HostNodeMap[info.NodeAddress]; exists {
-			// in case the re-ip item is given as: original IP -> new IP
-			originalAddress := info.NodeAddress
-			vnode.Address = info.TargetAddress
-			newVdb.HostNodeMap[info.TargetAddress] = vnode
-			delete(newVdb.HostNodeMap, originalAddress)
-			// add node name info to this item in the re-ip list
-			info.NodeName = vnode.Name
-			options.ReIPList[i] = info
+	var oldHosts []string
+	for _, info := range options.ReIPList {
+		// update old IPs to new IPs
+		if node, ok := nodeHostMap[info.NodeName]; ok {
+			oldHosts = append(oldHosts, node.Address)
+			node.Address = info.TargetAddress
+			newVdb.HostNodeMap[info.TargetAddress] = node
+			newVdb.HostList = append(newVdb.HostList, info.TargetAddress)
+		} else if node, ok := vdb.HostNodeMap[info.NodeAddress]; ok {
+			oldHosts = append(oldHosts, node.Address)
+			node.Address = info.TargetAddress
+			newVdb.HostNodeMap[info.TargetAddress] = node
+			newVdb.HostList = append(newVdb.HostList, info.TargetAddress)
 		} else {
-			logger.PrintWarning("Node name %q or address %q not found in vdb, ignoring this re-ip item for further processing",
+			logger.PrintWarning("Node name %q or address %q not found in vdb, ignoring this host for further processing",
 				info.NodeName, info.NodeAddress)
 		}
 	}
-
-	newVdb.HostList = maps.Keys(newVdb.HostNodeMap)
-	sort.Strings(newVdb.HostList)
-
-	return newVdb
+	return oldHosts, newVdb
 }
 
 type reIPRow struct {

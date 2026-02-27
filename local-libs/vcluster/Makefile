@@ -50,7 +50,7 @@ $(LOCALBIN):
 
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 # see [sandbox]/__golint_version__.txt
-GOLANGCI_LINT_VERSION ?= 1.60.3
+GOLANGCI_LINT_VERSION ?= 1.64.2
 
 .PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint

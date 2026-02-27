@@ -170,10 +170,7 @@ func (vcc VClusterCommands) VStartSubcluster(options *VStartScOptions) (VCoordin
 	options.VStartNodesOptions.StatePollingTimeout = options.StatePollingTimeout
 	options.VStartNodesOptions.vdb = &vdb
 
-	nodeNames := maps.Keys(nodesToStart)
-	sort.Strings(nodeNames)
-	vlog.DisplayColorInfo("Starting nodes %v in subcluster %s", nodeNames, options.SCName)
-
+	vlog.DisplayColorInfo("Starting nodes %v in subcluster %s", maps.Keys(nodesToStart), options.SCName)
 	err = vcc.VStartNodes(&options.VStartNodesOptions)
 	if err != nil {
 		return vdb, err

@@ -75,15 +75,6 @@ Examples:
     --hosts 10.20.30.40,10.20.30.41,10.20.30.42 \
     --is-primary --control-set-size -1 --new-hosts 10.20.30.43 \
     --password "PASSWORD"
-
-  # Clone properties from an existing subcluster (empty to empty)
-  vcluster add_subcluster --subcluster sc2 --like sc1
-
-  # Clone properties and add a single node (must match source node count)
-  vcluster add_subcluster --subcluster sc2 --like sc1 --new-hosts 10.20.30.45
-
-  # Clone properties and add multiple nodes (must match source node count)
-  vcluster add_subcluster --subcluster sc2 --like sc1 --new-hosts 10.20.30.45,10.20.30.46
 `,
 		[]string{dbNameFlag, configFlag, hostsFlag, ipv6Flag, eonModeFlag, passwordFlag,
 			dataPathFlag, depotPathFlag},
@@ -92,13 +83,6 @@ Examples:
 	// local flags
 	newCmd.setLocalFlags(cmd)
 
-	// Validate --like mutual exclusivity
-	// When using --like to clone a subcluster, the is-primary and control-set-size
-	// properties are automatically cloned from the source subcluster.
-	// Therefore, these flags cannot be used together with --like.
-	cmd.MarkFlagsMutuallyExclusive("like", "is-primary")
-	cmd.MarkFlagsMutuallyExclusive("like", "control-set-size")
-
 	// check if hidden flags can be implemented/removed in VER-92259
 	// hidden flags
 	newCmd.setHiddenFlags(cmd)
@@ -106,25 +90,8 @@ Examples:
 	// require name of subcluster to add
 	markFlagsRequired(cmd, subclusterFlag)
 
-	// hide this flag because re-using depot dirs should be advanced use case
-	// and users need to make sure they have exactly the same number of hosts and the existing depot dirs
-	cmd.Flags().BoolVar(
-		&newCmd.addSubclusterOptions.UseExistingDepotDir,
-		useExistingDepotDirFlag,
-		false,
-		"Use existing depot directories for the new subcluster, must enforce same number of hosts with the existing depot dirs",
-	)
-	// hide this flag because this is an advanced use case associated with depot reusing
-	// users need to fully understand the depot reusing for using this hidden option
-	cmd.Flags().BoolVar(
-		&newCmd.addSubclusterOptions.VAddNodeOptions.SkipAutoStart,
-		skipAutoStartFlag,
-		false,
-		"Skip auto restarting the subcluster nodes after adding the subcluster",
-	)
-
 	// hide eon mode flag since we expect it to come from config file, not from user input
-	hideLocalFlags(cmd, []string{eonModeFlag, useExistingDepotDirFlag, skipAutoStartFlag})
+	hideLocalFlags(cmd, []string{eonModeFlag})
 
 	return cmd
 }
@@ -142,12 +109,6 @@ func (c *CmdAddSubcluster) setLocalFlags(cmd *cobra.Command) {
 		"is-primary",
 		false,
 		"Whether the new subcluster should be a primary subcluster. If this option is omitted, new subclusters are secondary.",
-	)
-	cmd.Flags().StringVar(
-		&c.addSubclusterOptions.CloneSC,
-		"like",
-		"",
-		"Clone configuration from an existing subcluster. Cannot be used with --is-primary or --control-set-size.",
 	)
 	cmd.Flags().StringVar(
 		&c.addSubclusterOptions.SandboxName,
@@ -221,7 +182,13 @@ func (c *CmdAddSubcluster) setHiddenFlags(cmd *cobra.Command) {
 		"",
 		"",
 	)
-	hideLocalFlags(cmd, []string{"sc-hosts"})
+	cmd.Flags().StringVar(
+		&c.addSubclusterOptions.CloneSC,
+		"like",
+		"",
+		"",
+	)
+	hideLocalFlags(cmd, []string{"sc-hosts", "like"})
 }
 
 func (c *CmdAddSubcluster) Parse(inputArgv []string, logger vlog.Printer) error {
@@ -298,9 +265,6 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		options.VAddNodeOptions.Sls = c.addSubclusterOptions.Sls
 		options.VAddNodeOptions.SaveRp = c.addSubclusterOptions.SaveRp
 		options.VAddNodeOptions.ForUpgrade = c.addSubclusterOptions.ForUpgrade
-		options.VAddNodeOptions.UseExistingDepotDir = c.addSubclusterOptions.UseExistingDepotDir
-		options.VAddNodeOptions.CloneSC = c.addSubclusterOptions.CloneSC
-
 		vdb, err := vcc.VAddNode(&options.VAddNodeOptions)
 		if err != nil {
 			const msg = "Failed to add nodes to the new subcluster"
@@ -308,7 +272,6 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 				msg, options.VAddNodeOptions.SCName)
 			return err
 		}
-
 		// update db info in the config file
 		mainCluster := false
 		if c.addSubclusterOptions.SandboxName == util.MainClusterSandbox {
@@ -320,50 +283,20 @@ func (c *CmdAddSubcluster) Run(vcc vclusterops.ClusterCommands) error {
 		} else {
 			// update new node info in config
 			UpdateDBConfig(&vdb, dbConfig, c.addSubclusterOptions.SandboxName, mainCluster)
-			writeErr := dbConfig.write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
+			writeErr := dbConfig.Write(c.addSubclusterOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
 			if writeErr != nil {
 				vcc.PrintWarning("Fail to update config file: %s", writeErr)
 				return nil
 			}
 		}
-	} else if c.addSubclusterOptions.CloneSC != "" {
-		// Clone properties if --like is used without adding new nodes
-		cloneOptions := vclusterops.VCloneSubclusterPropertiesOptionsFactory()
-		cloneOptions.DatabaseOptions = c.addSubclusterOptions.DatabaseOptions
-		cloneOptions.SourceSubcluster = c.addSubclusterOptions.CloneSC
-		cloneOptions.TargetSubcluster = c.addSubclusterOptions.SCName
-
-		err = vcc.VCloneSubclusterProperties(&cloneOptions)
-		if err != nil {
-			vcc.DisplayError("Failed to clone subcluster properties: %v\n"+
-				"Hint: Run manually: SELECT clone_subcluster_properties('%s', '%s');",
-				err, c.addSubclusterOptions.CloneSC, c.addSubclusterOptions.SCName)
-			return err
-		}
 	}
 
-	var successMsg string
-	hasNodes := len(options.NewHosts) > 0
-	hasClone := c.addSubclusterOptions.CloneSC != ""
-
-	switch {
-	case hasNodes && hasClone:
-		successMsg = fmt.Sprintf("Successfully added subcluster %s with %d node(s) and properties from %s",
-			options.SCName, len(options.NewHosts), c.addSubclusterOptions.CloneSC)
-
-	case hasNodes && !hasClone:
-		successMsg = fmt.Sprintf("Successfully added subcluster %s with nodes %v to database %s",
+	if len(options.NewHosts) > 0 {
+		vcc.DisplayInfo("Successfully added subcluster %s with nodes %v to database %s",
 			options.SCName, options.NewHosts, options.DBName)
-
-	case !hasNodes && hasClone:
-		successMsg = fmt.Sprintf("Successfully added subcluster %s with properties from %s",
-			options.SCName, c.addSubclusterOptions.CloneSC)
-
-	default: // !hasNodes && !hasClone
-		successMsg = fmt.Sprintf("Successfully added subcluster %s to database %s",
-			options.SCName, options.DBName)
+	} else {
+		vcc.DisplayInfo("Successfully added subcluster %s to database %s", options.SCName, options.DBName)
 	}
-	vcc.DisplayInfo(successMsg)
 	return nil
 }
 

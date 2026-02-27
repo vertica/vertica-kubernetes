@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/slices"
@@ -83,21 +82,19 @@ type httpsCheckRunningDBOp struct {
 	opBase
 	opHTTPSBase
 	opType      opType
-	dbName      string // database name for better error messages
 	sandbox     string // check if DB is running on specified sandbox
 	mainCluster bool   // check if DB is running on the main cluster.
 }
 
 func makeHTTPSCheckRunningDBOp(hosts []string,
 	useHTTPPassword bool, userName string,
-	httpsPassword *string, operationType opType, dbName string,
+	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
 	op := httpsCheckRunningDBOp{}
 	op.name = checkDBRunningOpName
 	op.description = checkDBRunningOpDesc
 	op.hosts = hosts
 	op.useHTTPPassword = useHTTPPassword
-	op.dbName = dbName
 	err := util.ValidateUsernameAndPassword(op.name, useHTTPPassword, userName)
 	if err != nil {
 		return op, err
@@ -106,34 +103,22 @@ func makeHTTPSCheckRunningDBOp(hosts []string,
 	op.userName = userName
 	op.httpsPassword = httpsPassword
 	op.opType = operationType
-	// Update description based on operation type and database name
-	if op.dbName != "" {
-		if op.opType == StartDB || op.opType == ReviveDB {
-			op.description = fmt.Sprintf("Verify database %s is not running", op.dbName)
-		} else {
-			op.description = fmt.Sprintf("Verify database %s is running", op.dbName)
-		}
-	} else {
-		// Fallback to old behavior when dbName is not provided
-		if op.opType == StartDB || op.opType == ReviveDB {
-			op.description = checkDBNotRunningOpDesc
-		} else {
-			op.description = checkDBRunningOpDesc
-		}
+	if op.opType == StopDB {
+		op.description = checkDBNotRunningOpDesc
 	}
 	return op, nil
 }
 
 func makeHTTPSCheckRunningDBOpWithoutHosts(useHTTPPassword bool, userName string,
-	httpsPassword *string, operationType opType, dbName string) (httpsCheckRunningDBOp, error) {
-	return makeHTTPSCheckRunningDBOp(nil, useHTTPPassword, userName, httpsPassword, operationType, dbName)
+	httpsPassword *string, operationType opType) (httpsCheckRunningDBOp, error) {
+	return makeHTTPSCheckRunningDBOp(nil, useHTTPPassword, userName, httpsPassword, operationType)
 }
 
 func makeHTTPSCheckRunningDBWithSandboxOp(hosts []string,
 	useHTTPPassword bool, userName string, sandbox string, mainCluster bool,
-	httpsPassword *string, operationType opType, dbName string,
+	httpsPassword *string, operationType opType,
 ) (httpsCheckRunningDBOp, error) {
-	op, err := makeHTTPSCheckRunningDBOp(hosts, useHTTPPassword, userName, httpsPassword, operationType, dbName)
+	op, err := makeHTTPSCheckRunningDBOp(hosts, useHTTPPassword, userName, httpsPassword, operationType)
 	if err != nil {
 		return op, err
 	}
@@ -274,7 +259,7 @@ func (op *httpsCheckRunningDBOp) isDBRunningOnHost(host string,
 }
 
 func (op *httpsCheckRunningDBOp) accumulateSandboxedAndMainHosts(sandboxingHosts map[string]string,
-	mainClusterHosts mapset.Set[string], nodesState *nodesStateInfo) {
+	mainClusterHosts map[string]struct{}, nodesState *nodesStateInfo) {
 	if op.sandbox == "" || !op.mainCluster {
 		return
 	}
@@ -286,7 +271,7 @@ func (op *httpsCheckRunningDBOp) accumulateSandboxedAndMainHosts(sandboxingHosts
 				sandboxingHosts[node.Address] = node.State
 			}
 			if op.mainCluster && node.Sandbox == "" {
-				mainClusterHosts.Add(node.Address)
+				mainClusterHosts[node.Address] = struct{}{}
 			}
 		}
 	}
@@ -297,14 +282,14 @@ func (op *httpsCheckRunningDBOp) accumulateSandboxedAndMainHosts(sandboxingHosts
 // returned.
 func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 	var allErrs error
-
-	upHosts := mapset.NewSet[string]()
-	downHosts := mapset.NewSet[string]()
-	exceptionHosts := mapset.NewSet[string]()
-	mainClusterHosts := mapset.NewSet[string]()
-
-	sandboxedHosts := make(map[string]string) // node address to node state
-
+	// golang doesn't have set data structure,
+	// so use maps for caching distinct up and down hosts
+	// we have this list of hosts for better debugging info
+	upHosts := make(map[string]bool)
+	downHosts := make(map[string]bool)
+	exceptionHosts := make(map[string]bool)
+	sandboxedHosts := make(map[string]string)
+	mainClusterHosts := make(map[string]struct{})
 	// print msg
 	msg := ""
 	for host, result := range op.clusterHTTPRequest.ResultCollection {
@@ -319,14 +304,14 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 			allErrs = errors.Join(allErrs, result.err)
 		}
 		if result.isFailing() && !result.isHTTPRunning() {
-			downHosts.Add(host)
+			downHosts[host] = true
 			continue
 		} else if result.isException() || result.isEOF() {
-			exceptionHosts.Add(host)
+			exceptionHosts[host] = true
 			continue
 		}
 
-		upHosts.Add(host)
+		upHosts[host] = true
 
 		// a passing result means that the db isn't down
 		nodesStates := nodesStateInfo{}
@@ -352,12 +337,11 @@ func (op *httpsCheckRunningDBOp) processResult(_ *opEngineExecContext) error {
 		msg = checkMsg
 	}
 
-	return op.handleDBRunning(allErrs, msg, upHosts, downHosts, exceptionHosts, mainClusterHosts, sandboxedHosts)
+	return op.handleDBRunning(allErrs, msg, upHosts, downHosts, exceptionHosts, sandboxedHosts, mainClusterHosts)
 }
 
-func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string,
-	upHosts, downHosts, exceptionHosts, mainClusterHosts mapset.Set[string],
-	sandboxedHosts map[string]string) error {
+func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string, upHosts, downHosts, exceptionHosts map[string]bool,
+	sandboxedHosts map[string]string, mainClusterHosts map[string]struct{}) error {
 	op.logger.Info("check db running results", "up hosts", upHosts, "down hosts", downHosts, "hosts with status unknown", exceptionHosts,
 		"sandboxed hosts", sandboxedHosts)
 
@@ -403,9 +387,9 @@ func (op *httpsCheckRunningDBOp) handleDBRunning(allErrs error, msg string,
 }
 
 func (op *httpsCheckRunningDBOp) checkProcessedResult(sandboxedHosts map[string]string,
-	mainClusterHosts mapset.Set[string], upHosts mapset.Set[string]) bool {
+	mainClusterHosts map[string]struct{}, upHosts map[string]bool) bool {
 	// no DB is running on hosts, return a passed result
-	if upHosts.Cardinality() == 0 {
+	if len(upHosts) == 0 {
 		if op.sandbox != "" || op.mainCluster {
 			op.logger.PrintWarning("All the nodes in the database are down")
 		}
@@ -416,15 +400,15 @@ func (op *httpsCheckRunningDBOp) checkProcessedResult(sandboxedHosts map[string]
 	// sandboxedHosts would be empty if op.sandbox is ""
 	isSandboxUp := false
 	for host := range sandboxedHosts {
-		if upHosts.Contains(host) {
+		if _, ok := upHosts[host]; ok {
 			isSandboxUp = true
 			break
 		}
 	}
 
 	isMainHostUp := false
-	for host := range mainClusterHosts.Iter() {
-		if upHosts.Contains(host) {
+	for host := range mainClusterHosts {
+		if _, ok := upHosts[host]; ok {
 			isMainHostUp = true
 			break
 		}

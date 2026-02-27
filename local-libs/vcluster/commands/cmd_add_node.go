@@ -290,13 +290,13 @@ func (c *CmdAddNode) Run(vcc vclusterops.ClusterCommands) error {
 	if configErr == nil {
 		// update new node info in config
 		UpdateDBConfig(&vdb, dbConfig, c.addNodeOptions.Sandbox, mainCluster)
-		writeErr := dbConfig.write(c.addNodeOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/, vcc.GetLog())
+		writeErr := dbConfig.Write(c.addNodeOptions.DatabaseOptions.ConfigPath, true /*forceOverwrite*/)
 		if writeErr != nil {
 			vcc.PrintWarning("Fail to update config file: %s", writeErr)
 			return nil
 		}
 	} else {
-		err = writeConfig(&vdb, true /*forceOverwrite*/, vcc.GetLog())
+		err = writeConfig(&vdb, true /*forceOverwrite*/)
 		if err != nil {
 			vcc.DisplayWarning("Failed to write config file: %s", err)
 		}
