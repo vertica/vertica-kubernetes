@@ -18,6 +18,11 @@
             "type": "counter"
         },
         {
+            "description": "Total number of reconciliation panics per controller.",
+            "name": "controller_runtime_reconcile_panics_total",
+            "type": "counter"
+        },
+        {
             "description": "Length of time per reconciliation per controller.",
             "name": "controller_runtime_reconcile_time_seconds",
             "type": "histogram"
@@ -28,9 +33,19 @@
             "type": "counter"
         },
         {
+            "description": "Total number of terminal reconciliation errors per controller.",
+            "name": "controller_runtime_terminal_reconcile_errors_total",
+            "type": "counter"
+        },
+        {
             "description": "Histogram of the latency of processing admission requests.",
             "name": "controller_runtime_webhook_latency_seconds",
             "type": "histogram"
+        },
+        {
+            "description": "Total number of webhook panics.",
+            "name": "controller_runtime_webhook_panics_total",
+            "type": "counter"
         },
         {
             "description": "Current number of admission requests being served.",

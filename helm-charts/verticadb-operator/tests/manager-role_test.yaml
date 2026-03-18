@@ -29,19 +29,6 @@ tests:
               - keda.sh
             resources:
               - scaledobjects
-            verbs:
-              - create
-              - get
-              - list
-              - patch
-              - update
-              - watch
-      - contains:
-          path: rules
-          content:
-            apiGroups:
-              - keda.sh
-            resources:
               - triggerauthentications
             verbs:
               - create

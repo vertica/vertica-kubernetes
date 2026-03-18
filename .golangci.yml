@@ -5,7 +5,10 @@ linters-settings:
     lines: 100
     statements: 50
   gci:
-    local-prefixes: github.com/golangci/golangci-lint
+    sections:
+      - standard
+      - default
+      - prefix(github.com/golangci/golangci-lint)
   goconst:
     min-len: 2
     min-occurrences: 3
@@ -27,12 +30,14 @@ linters-settings:
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: [argument, case, condition, return]
+    checks:
+      - argument
+      - case
+      - condition
+      - return
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
     settings:
       printf:
         funcs:
@@ -119,11 +124,13 @@ issues:
     - linters:
         - gocritic
       text: "unnecessaryDefer:"
-
-run:
-  skip-dirs:
+  exclude-dirs:
     - test/testdata_etc
     - internal/cache
     - internal/renameio
     - internal/robustio
-  timeout: 5m
+
+run:
+  timeout: 15m
+  # Reduce memory usage by limiting concurrency
+  concurrency: 2

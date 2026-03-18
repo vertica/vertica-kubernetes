@@ -91,8 +91,6 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",resources=servicemonitors,verbs=get;list;watch;create;update
 
 // SetupWithManager sets up the controller with the Manager.
-//
-//nolint:gocritic
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
 	ctrlManager := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).

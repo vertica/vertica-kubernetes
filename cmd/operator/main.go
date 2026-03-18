@@ -105,7 +105,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 
 	cacheManager := vcache.MakeCacheManager(opcfg.GetIsCacheEnabled())
 	// Create a custom option with our own rate limiter
-	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+	rateLimiter := workqueue.NewTypedItemExponentialFailureRateLimiter[ctrl.Request](1*time.Millisecond,
 		time.Duration(opcfg.GetVdbMaxBackoffDuration())*time.Millisecond)
 	options := controller.Options{
 		RateLimiter: rateLimiter,
@@ -159,7 +159,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaScrutinize")
 		os.Exit(1)
 	}
-	sbRateLimiter := workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond,
+	sbRateLimiter := workqueue.NewTypedItemExponentialFailureRateLimiter[ctrl.Request](1*time.Millisecond,
 		time.Duration(opcfg.GetSandboxMaxBackoffDuration())*time.Millisecond)
 	sbOptions := controller.Options{
 		RateLimiter: sbRateLimiter,
