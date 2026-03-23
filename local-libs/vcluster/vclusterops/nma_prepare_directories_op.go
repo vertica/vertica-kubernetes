@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/vertica/vcluster/rfc7807"
+	"github.com/vertica/vcluster/vclusterops/util"
 	"golang.org/x/exp/maps"
 )
 
@@ -103,7 +104,12 @@ func (op *nmaPrepareDirectoriesOp) setupRequestBody(hostNodeMap vHostNodeMap) er
 		prepareDirData.CatalogPath = getCatalogPath(hostNodeMap[host].CatalogPath)
 		prepareDirData.DepotPath = hostNodeMap[host].DepotPath
 		prepareDirData.StorageLocations = hostNodeMap[host].StorageLocations
-		prepareDirData.UserStorageLocations = hostNodeMap[host].UserStorageLocations
+		// filter out remote storage locations as vcluster will not be able to create them
+		for _, loc := range hostNodeMap[host].UserStorageLocations {
+			if !util.IsRemoteLocation(loc) {
+				prepareDirData.UserStorageLocations = append(prepareDirData.UserStorageLocations, loc)
+			}
+		}
 		prepareDirData.ForceCleanup = op.forceCleanup
 		prepareDirData.ForRevive = op.forRevive
 		prepareDirData.IgnoreParent = false

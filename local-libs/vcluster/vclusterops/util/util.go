@@ -837,6 +837,10 @@ func IsK8sEnvironment() bool {
 	return portSet && port != ""
 }
 
+func IsRemoteLocation(dirPath string) bool {
+	return strings.Contains(dirPath, "://")
+}
+
 // GetClusterName can return the correct cluster name based on the sandbox name.
 // It can help people to log the cluster name.
 func GetClusterName(sandbox string) string {
