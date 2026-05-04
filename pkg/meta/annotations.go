@@ -209,7 +209,7 @@ const (
 	SuperuserNameDefaultValue = "dbadmin"
 
 	// Annotation to control the termination grace period for vertica pods.
-	TerminationGracePeriodSecondsAnnotaton = "vertica.com/termination-grace-period-seconds"
+	TerminationGracePeriodSecondsAnnotation = "vertica.com/termination-grace-period-seconds"
 
 	// During the create database process, if we discover that Vertica is
 	// already running, we can either treat this as an error or continue.
@@ -630,7 +630,7 @@ func IsKSafetyCheckStrict(annotations map[string]string) bool {
 // termination grace period in vertica pods. This is the amount of time k8s will
 // wait before forcibly removing the pod.
 func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton, 0 /* default value */)
+	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotation, 20 /* default value */)
 }
 
 // FailCreateDBIfVerticaIsRunning is used to see how to handle failures during create
